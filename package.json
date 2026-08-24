@@ -1,0 +1,22 @@
+{
+  "name": "agenda",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "dev:https": "concurrently -n api,web -c blue,green \"npm run dev -w backend\" \"npm run dev:https -w frontend\"",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "seed": "npm run seed -w backend",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

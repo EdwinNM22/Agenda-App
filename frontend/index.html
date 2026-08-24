@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Agenda</title>
+    <script>
+      try {
+        const theme = localStorage.getItem("agenda.theme")
+        const dark =
+          theme === "dark" ||
+          theme === "wallpaper" ||
+          (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+        if (dark) document.documentElement.classList.add("dark")
+        if (theme === "wallpaper") {
+          document.documentElement.classList.add("wallpaper")
+          const color = localStorage.getItem("agenda.wallpaperColor")
+          if (color) {
+            document.documentElement.style.setProperty("--wallpaper-color", color)
+            const meta = document.createElement("meta")
+            meta.name = "theme-color"
+            meta.content = color
+            document.head.appendChild(meta)
+          }
+        }
+      } catch (error) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
