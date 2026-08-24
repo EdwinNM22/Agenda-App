@@ -8,11 +8,18 @@ const required = (name: string, fallback?: string): string => {
   return value
 }
 
+const parseCorsOrigins = (value: string): string[] =>
+  value
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/$/, ""))
+    .filter(Boolean)
+
 export const config = {
   port: Number(process.env.PORT ?? 3001),
   host: process.env.HOST ?? "0.0.0.0",
   jwtSecret: required("JWT_SECRET", "cambia-esta-clave-en-local"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
+  corsOrigins: parseCorsOrigins(process.env.CORS_ORIGIN ?? ""),
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   openaiRealtimeModel: process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime-2.1-mini",
   db: {

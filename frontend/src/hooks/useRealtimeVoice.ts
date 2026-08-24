@@ -223,7 +223,7 @@ export const useRealtimeVoice = () => {
                       threshold: enabled ? 0.65 : 0.9,
                       silence_duration_ms: enabled ? 700 : 1200,
                       prefix_padding_ms: 300,
-                      interrupt_response: enabled,
+                      interrupt_response: false,
                       create_response: enabled,
                     },
                   },
@@ -352,6 +352,7 @@ export const useRealtimeVoice = () => {
             awaitingResponseRef.current = false
             responseOpenRef.current += 1
             syncBusy()
+            setMicEnabled(false)
           }
           if (type === "response.done") {
             awaitingResponseRef.current = false
@@ -365,7 +366,14 @@ export const useRealtimeVoice = () => {
                 }
                 finishGreeting()
               }, 1800)
+              return
             }
+            window.setTimeout(() => {
+              if (generation !== generationRef.current || greetingPlayingRef.current) {
+                return
+              }
+              setMicEnabled(true)
+            }, 700)
           }
           void handleRealtimeToolEvent(
             channel,

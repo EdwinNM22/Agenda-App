@@ -12,6 +12,8 @@ import { registerTaskSocketRoutes } from "./routes/taskSocket.js"
 import { registerTaskRoutes } from "./routes/tasks.js"
 import { avatarsDir, attachmentsDir, wallpapersDir, ensureUploadDirs } from "./uploads.js"
 
+const normalizeOrigin = (origin: string): string => origin.trim().replace(/\/$/, "")
+
 const isLocalDevOrigin = (origin: string): boolean => {
   try {
     const { hostname, protocol } = new URL(origin)
@@ -36,6 +38,17 @@ const isLocalDevOrigin = (origin: string): boolean => {
   }
 }
 
+const isAllowedOrigin = (origin: string): boolean => {
+  const normalized = normalizeOrigin(origin)
+  if (isLocalDevOrigin(normalized)) {
+    return true
+  }
+  if (config.corsOrigins.includes("*")) {
+    return true
+  }
+  return config.corsOrigins.includes(normalized)
+}
+
 export const buildApp = async () => {
   const app = Fastify({
     logger: true,
@@ -43,12 +56,14 @@ export const buildApp = async () => {
 
   await app.register(cors, {
     origin: (origin, callback) => {
-      if (!origin || isLocalDevOrigin(origin)) {
+      if (!origin || isAllowedOrigin(origin)) {
         callback(null, true)
         return
       }
-      callback(new Error("Origen no permitido"), false)
+      app.log.warn({ origin }, "CORS rechazó el origen")
+      callback(null, false)
     },
+    credentials: true,
   })
 
   await app.register(jwt, {

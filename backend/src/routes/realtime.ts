@@ -171,7 +171,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
               threshold: 0.65,
               silence_duration_ms: 700,
               prefix_padding_ms: 300,
-              interrupt_response: true,
+              interrupt_response: false,
               create_response: true,
             },
           },
