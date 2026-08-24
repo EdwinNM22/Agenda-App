@@ -157,7 +157,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           "Si cualquiera de estas funciones falla, informa que la acción no pudo realizarse. Nunca afirmes que se realizó si la función falló.",
         
           // FINALIZAR LLAMADA
-          "Si el usuario dice «thanks EC», «zenks isi», «thanks isi», «thank you EC» o «gracias EC», no respondas nada y llama a end_call."
+          "Solo llama a end_call si el usuario se despide con claridad: thanks EC, thanks isi, thank you EC o gracias EC. Nunca cuelgues por ruido, eco de tu propia voz, un saludo, ni una frase suelta como «gracias» o tu nombre. Si no estás seguro, sigue en la llamada."
         ].join(" "),
         audio: {
           input: {

@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useAudioLevel } from "@/hooks/useAudioLevel"
 import { useRealtimeVoice } from "@/hooks/useRealtimeVoice"
 import { useSilenceHangup } from "@/hooks/useSilenceHangup"
 import { useSpeechCommands } from "@/hooks/useSpeechCommands"
@@ -30,7 +31,7 @@ const VOICE_STORAGE_KEY = "agenda.realtimeVoice"
 const statusLabel = {
   idle: "Di “Hey EC” para llamar. Pídele crear una tarea y decide título y descripción.",
   connecting: "Conectando con GPT Realtime…",
-  live: "En llamada. Di “Thanks EC” para colgar, o se cierra a los 8 s de silencio.",
+  live: "En llamada. Di “Thanks EC” para colgar, o se cierra a los 30 s de silencio.",
   error: "No se pudo conectar. Revisa el micrófono y la API key.",
 } as const
 
@@ -42,9 +43,10 @@ const loadSavedVoice = (): RealtimeVoice => {
 export const DashboardPage = () => {
   const { user, logout } = useAuth()
   const { theme } = useTheme()
-  const { status, error, start, hangUp, audioRef, busy, hearingUser } = useRealtimeVoice()
-  const voiceLevel = 0
-  const userLevel = 0
+  const { status, error, start, hangUp, audioRef, localStream, remoteStream, busy, hearingUser } =
+    useRealtimeVoice()
+  const voiceLevel = useAudioLevel(remoteStream)
+  const userLevel = useAudioLevel(localStream)
   const [voice, setVoice] = useState<RealtimeVoice>(DEFAULT_VOICE)
   const live = status === "live"
   const selectingLocked = status === "connecting" || live
@@ -75,7 +77,7 @@ export const DashboardPage = () => {
 
   return (
     <main className="flex min-h-svh flex-col gap-8 bg-background p-6 py-10">
-      <audio ref={audioRef} autoPlay playsInline />
+      <audio ref={audioRef} playsInline />
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 text-center">
           <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>

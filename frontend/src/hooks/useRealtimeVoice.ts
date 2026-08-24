@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  captureMicrophone,
+  describeMicError,
+  releaseCallAudioSession,
+  setAudioSessionType,
+} from "@/audio/audioSession"
 import { api } from "@/lib/api"
 import { handleRealtimeToolEvent } from "@/lib/realtimeTools"
+import { isHangupCommand } from "@/lib/voiceCommands"
 import type { RealtimeVoice } from "@/lib/voices"
 
 export type VoiceStatus = "idle" | "connecting" | "live" | "error"
@@ -126,6 +133,9 @@ export const useRealtimeVoice = () => {
   const awaitingResponseRef = useRef(false)
   const greetedRef = useRef(false)
   const greetingPlayingRef = useRef(false)
+  const isiSpeakingRef = useRef(false)
+  const lastUserTranscriptRef = useRef("")
+  const isiQuietTimerRef = useRef(0)
   const [busy, setBusy] = useState(false)
   const [hearingUser, setHearingUser] = useState(false)
 
@@ -133,7 +143,9 @@ export const useRealtimeVoice = () => {
     const next =
       responseOpenRef.current > 0 ||
       toolsInFlightRef.current > 0 ||
-      awaitingResponseRef.current
+      awaitingResponseRef.current ||
+      greetingPlayingRef.current ||
+      isiSpeakingRef.current
     setBusy((prev) => (prev === next ? prev : next))
   }, [])
 
@@ -147,6 +159,9 @@ export const useRealtimeVoice = () => {
     awaitingResponseRef.current = false
     greetedRef.current = false
     greetingPlayingRef.current = false
+    isiSpeakingRef.current = false
+    lastUserTranscriptRef.current = ""
+    window.clearTimeout(isiQuietTimerRef.current)
     setHearingUser(false)
     stopStream(streamRef.current)
     streamRef.current = null
@@ -154,6 +169,7 @@ export const useRealtimeVoice = () => {
       audioRef.current.pause()
       audioRef.current.srcObject = null
     }
+    releaseCallAudioSession()
     setLocalStream(null)
     setRemoteStream(null)
     setBusy(false)
@@ -179,9 +195,7 @@ export const useRealtimeVoice = () => {
     setStatus("connecting")
 
     try {
-      const rawStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      })
+      const rawStream = await captureMicrophone()
       if (generation !== generationRef.current) {
         stopStream(rawStream)
         return
@@ -231,6 +245,7 @@ export const useRealtimeVoice = () => {
         greetingPlayingRef.current = false
         logIsi("abrió el micro después del saludo")
         setListening(true, greetChannelRef.current)
+        syncBusy()
       }
 
       const tryGreet = () => {
@@ -241,6 +256,7 @@ export const useRealtimeVoice = () => {
         greetedRef.current = true
         greetingPlayingRef.current = true
         greetingResponseOpen = true
+        syncBusy()
         logIsi("envió el saludo inicial")
         setListening(false, channel)
         channel.send(
@@ -268,9 +284,11 @@ export const useRealtimeVoice = () => {
         setRemoteStream(remote)
         const audio = audioRef.current
         if (audio) {
-          audio.srcObject = remote
+          setAudioSessionType("play-and-record")
           audio.setAttribute("playsinline", "true")
+          audio.setAttribute("webkit-playsinline", "true")
           audio.muted = false
+          audio.srcObject = remote
           void audio.play().catch(() => {})
         }
         window.setTimeout(() => {
@@ -329,13 +347,43 @@ export const useRealtimeVoice = () => {
             return
           }
           const type = (event as { type?: string }).type
+          if (typeof type !== "string") {
+            return
+          }
           if (type === "input_audio_buffer.speech_started") {
             setHearingUser(true)
           }
           if (type === "input_audio_buffer.speech_stopped") {
             setHearingUser(false)
           }
+          if (
+            type.includes("output_audio") &&
+            (type.includes("delta") || type.includes("started"))
+          ) {
+            window.clearTimeout(isiQuietTimerRef.current)
+            if (!isiSpeakingRef.current) {
+              isiSpeakingRef.current = true
+              syncBusy()
+            }
+          }
+          if (
+            type === "output_audio_buffer.stopped" ||
+            type === "output_audio_buffer.cleared" ||
+            type === "response.output_audio.done"
+          ) {
+            window.clearTimeout(isiQuietTimerRef.current)
+            isiQuietTimerRef.current = window.setTimeout(() => {
+              isiSpeakingRef.current = false
+              syncBusy()
+            }, 1200)
+          }
           logAssistantHearing(event as Record<string, unknown>)
+          if (type.includes("input_audio_transcription.completed")) {
+            const heard = nestedTranscript(event as Record<string, unknown>) || assistantHeardBuffer
+            if (heard) {
+              lastUserTranscriptRef.current = heard
+            }
+          }
           if (type === "response.created") {
             awaitingResponseRef.current = false
             responseOpenRef.current += 1
@@ -344,6 +392,11 @@ export const useRealtimeVoice = () => {
           if (type === "response.done") {
             awaitingResponseRef.current = false
             responseOpenRef.current = Math.max(0, responseOpenRef.current - 1)
+            window.clearTimeout(isiQuietTimerRef.current)
+            isiQuietTimerRef.current = window.setTimeout(() => {
+              isiSpeakingRef.current = false
+              syncBusy()
+            }, 1500)
             syncBusy()
             if (greetingResponseOpen) {
               greetingResponseOpen = false
@@ -372,6 +425,18 @@ export const useRealtimeVoice = () => {
               onAwaitingResponse: () => {
                 awaitingResponseRef.current = true
                 syncBusy()
+              },
+              shouldEndCall: () => {
+                if (greetingPlayingRef.current || isiSpeakingRef.current) {
+                  logIsi("ignoró end_call: Isi aún hablaba")
+                  return false
+                }
+                const last = lastUserTranscriptRef.current
+                if (!isHangupCommand(last)) {
+                  logIsi("ignoró end_call: no hubo despedida", last || "(vacío)")
+                  return false
+                }
+                return true
               },
             },
           )
@@ -409,7 +474,7 @@ export const useRealtimeVoice = () => {
       }
       hangUp()
       setStatus("error")
-      setError(err instanceof Error ? err.message : "No se pudo iniciar la conversación")
+      setError(describeMicError(err))
     }
   }, [hangUp, releaseCall, syncBusy])
 

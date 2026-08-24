@@ -8,6 +8,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react"
+import { useAudioLevel } from "@/hooks/useAudioLevel"
 import { useRealtimeVoice, type VoiceStatus } from "@/hooks/useRealtimeVoice"
 import { useSilenceHangup } from "@/hooks/useSilenceHangup"
 import { useAuth } from "@/lib/auth"
@@ -47,8 +48,8 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
   const { user } = useAuth()
   const { status, error, start: startSession, hangUp, audioRef, localStream, remoteStream, busy, hearingUser } =
     useRealtimeVoice()
-  const voiceLevel = 0
-  const userLevel = 0
+  const voiceLevel = useAudioLevel(remoteStream)
+  const userLevel = useAudioLevel(localStream)
   const [voice, setVoiceState] = useState<RealtimeVoice>(DEFAULT_VOICE)
   const live = status === "live"
   const selectingLocked = status === "connecting" || live
@@ -108,7 +109,7 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
 
   return (
     <VoiceAssistantContext.Provider value={value}>
-      <audio ref={audioRef} autoPlay playsInline />
+      <audio ref={audioRef} autoPlay={false} playsInline />
       {children}
     </VoiceAssistantContext.Provider>
   )

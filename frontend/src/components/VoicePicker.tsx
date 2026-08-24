@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { AudioLines, Check, Loader2 } from "lucide-react"
+import { registerVoicePreviewStop, setAudioSessionType } from "@/audio/audioSession"
 import { prefetchVoicePreviews, previewVoice } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useVoiceAssistant } from "@/lib/voice-assistant"
@@ -28,6 +29,26 @@ export const VoicePicker = () => {
     }
   }, [name])
 
+  useEffect(() => {
+    const stop = () => {
+      playIdRef.current += 1
+      audioRef.current?.pause()
+      setPreviewing(null)
+      setAudioSessionType("auto")
+    }
+    registerVoicePreviewStop(stop)
+    return () => registerVoicePreviewStop(undefined)
+  }, [])
+
+  useEffect(() => {
+    if (!selectingLocked) {
+      return
+    }
+    playIdRef.current += 1
+    audioRef.current?.pause()
+    setPreviewing(null)
+  }, [selectingLocked])
+
   const playPreview = async (nextVoice: RealtimeVoice) => {
     const playId = playIdRef.current + 1
     playIdRef.current = playId
@@ -50,12 +71,14 @@ export const VoicePicker = () => {
       audioRef.current = audio
       audio.onended = () => {
         setPreviewing((current) => (current === nextVoice ? null : current))
+        setAudioSessionType("auto")
       }
       await audio.play()
       if (playId === playIdRef.current) {
         setPreviewing((current) => (current === nextVoice ? null : current))
       }
     } catch {
+      setAudioSessionType("auto")
       if (playId === playIdRef.current) {
         setPreviewing(null)
       }

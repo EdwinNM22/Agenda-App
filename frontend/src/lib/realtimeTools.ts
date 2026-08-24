@@ -297,6 +297,7 @@ type RealtimeToolHandlers = {
   onToolStart?: () => void
   onToolEnd?: () => void
   onAwaitingResponse?: () => void
+  shouldEndCall?: () => boolean
 }
 
 export const handleRealtimeToolEvent = async (
@@ -362,8 +363,16 @@ export const handleRealtimeToolEvent = async (
         handlers?.onAwaitingResponse?.()
       }
       if (call.name === "end_call") {
-        sendToolResult(channel, call.callId, { ok: true })
-        window.setTimeout(() => handlers?.onHangUp?.(), 800)
+        if (handlers?.shouldEndCall && !handlers.shouldEndCall()) {
+          sendToolResult(channel, call.callId, {
+            ok: false,
+            message: "No cuelgues: el usuario no se despidió.",
+          })
+          handlers.onAwaitingResponse?.()
+        } else {
+          sendToolResult(channel, call.callId, { ok: true })
+          window.setTimeout(() => handlers?.onHangUp?.(), 800)
+        }
       }
     } finally {
       handlers?.onToolEnd?.()

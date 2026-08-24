@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { setAudioSessionType } from "@/audio/audioSession"
 
 export const useAudioLevel = (stream: MediaStream | null) => {
   const [level, setLevel] = useState(0)
@@ -9,8 +10,22 @@ export const useAudioLevel = (stream: MediaStream | null) => {
       return
     }
 
-    const audioContext = new AudioContext()
-    const source = audioContext.createMediaStreamSource(stream)
+    let audioContext: AudioContext
+    try {
+      audioContext = new AudioContext()
+    } catch {
+      setLevel(0)
+      return
+    }
+
+    let source: MediaStreamAudioSourceNode
+    try {
+      source = audioContext.createMediaStreamSource(stream)
+    } catch {
+      void audioContext.close()
+      setLevel(0)
+      return
+    }
     const analyser = audioContext.createAnalyser()
     analyser.fftSize = 1024
     analyser.smoothingTimeConstant = 0.65
@@ -51,7 +66,9 @@ export const useAudioLevel = (stream: MediaStream | null) => {
       frame = requestAnimationFrame(tick)
     }
 
-    void audioContext.resume()
+    void audioContext.resume().then(() => {
+      setAudioSessionType("play-and-record")
+    })
     frame = requestAnimationFrame(tick)
 
     return () => {
