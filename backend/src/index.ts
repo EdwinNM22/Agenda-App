@@ -1,4 +1,3 @@
-import "dotenv/config"
 import { config } from "./config.js"
 import { buildApp } from "./app.js"
 import { ensureAttachmentsTable, ensureTasksTable, ensureUsersSchema } from "./db.js"

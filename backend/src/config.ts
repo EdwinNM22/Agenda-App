@@ -1,4 +1,9 @@
-import "dotenv/config"
+import { config as loadEnv } from "dotenv"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
+
+// Siempre el .env del backend, no el cwd (PM2/systemd suelen arrancar desde otra carpeta).
+loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../.env") })
 
 const required = (name: string, fallback?: string): string => {
   const value = process.env[name] ?? fallback
