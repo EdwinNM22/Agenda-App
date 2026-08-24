@@ -8,6 +8,7 @@ import {
   Mail,
   Palette,
   Save,
+  UserPlus,
   UserRound,
 } from "lucide-react"
 import { FieldLabel } from "@/components/FieldLabel"
@@ -23,7 +24,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { updateProfile, uploadAvatar } from "@/lib/api"
+import { createAccount, updateProfile, uploadAvatar } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 
 const initials = (name: string) =>
@@ -34,7 +35,7 @@ const initials = (name: string) =>
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("")
 
-type OptionsSheet = "profile" | "voice" | "theme" | null
+type OptionsSheet = "profile" | "voice" | "theme" | "account" | null
 
 export const OptionsPage = () => {
   const { logout } = useAuth()
@@ -62,6 +63,12 @@ export const OptionsPage = () => {
           title="Tema"
           hint="Claro, oscuro o fondo"
           onClick={() => setSheet("theme")}
+        />
+        <OptionsRow
+          icon={UserPlus}
+          title="Crear cuenta"
+          hint="Nombre, correo y contraseña"
+          onClick={() => setSheet("account")}
         />
       </div>
 
@@ -120,6 +127,24 @@ export const OptionsPage = () => {
           </SheetHeader>
           <div className="px-4 pb-2">
             <ThemePicker />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={sheet === "account"} onOpenChange={(open) => !open && setSheet(null)}>
+        <SheetContent
+          side="bottom"
+          className="z-80 max-h-[88vh] gap-0 overflow-y-auto rounded-t-[1.75rem] pb-[calc(var(--k-safe-area-bottom)+1.25rem)]"
+        >
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <UserPlus className="size-4" />
+              Crear cuenta
+            </SheetTitle>
+            <SheetDescription>Nombre, correo y contraseña</SheetDescription>
+          </SheetHeader>
+          <div className="px-4 pb-2">
+            <CreateAccountForm />
           </div>
         </SheetContent>
       </Sheet>
@@ -331,5 +356,101 @@ const ProfileForm = () => {
         </Button>
       </form>
     </div>
+  )
+}
+
+const CreateAccountForm = () => {
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError(null)
+    setNotice(null)
+
+    const nextName = name.trim()
+    const nextEmail = email.trim().toLowerCase()
+    if (!nextName) {
+      setError("El nombre es obligatorio")
+      return
+    }
+    if (!nextEmail) {
+      setError("El correo es obligatorio")
+      return
+    }
+    if (!password) {
+      setError("La contraseña es obligatoria")
+      return
+    }
+
+    setSaving(true)
+    try {
+      const data = await createAccount({ name: nextName, email: nextEmail, password })
+      setName("")
+      setEmail("")
+      setPassword("")
+      setNotice(`Cuenta creada para ${data.user.name}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo crear la cuenta")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form className="grid gap-4" onSubmit={onSubmit}>
+      <div className="grid gap-2">
+        <FieldLabel htmlFor="account-name" icon={UserRound}>
+          Nombre
+        </FieldLabel>
+        <Input
+          id="account-name"
+          className="h-11"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          maxLength={120}
+          autoComplete="off"
+          required
+        />
+      </div>
+      <div className="grid gap-2">
+        <FieldLabel htmlFor="account-email" icon={Mail}>
+          Correo
+        </FieldLabel>
+        <Input
+          id="account-email"
+          className="h-11"
+          type="email"
+          autoComplete="off"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+        />
+      </div>
+      <div className="grid gap-2">
+        <FieldLabel htmlFor="account-password" icon={KeyRound}>
+          Contraseña
+        </FieldLabel>
+        <Input
+          id="account-password"
+          className="h-11"
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          required
+        />
+      </div>
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {notice ? <p className="text-sm text-emerald-600 dark:text-emerald-400">{notice}</p> : null}
+      <Button type="submit" className="h-11" disabled={saving}>
+        <UserPlus data-icon="inline-start" />
+        {saving ? "Creando…" : "Crear cuenta"}
+      </Button>
+    </form>
   )
 }

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { Navigate, Route, Routes } from "react-router-dom"
 import { AppShell } from "@/components/AppShell"
+import { AuthSplash } from "@/components/AuthSplash"
 import { useAuth } from "@/lib/auth"
 import { HomePage } from "@/pages/Home"
 import { LoginPage } from "@/pages/Login"
@@ -11,11 +12,7 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { user, loading } = useAuth()
 
   if (loading) {
-    return (
-      <main className="flex min-h-svh items-center justify-center text-muted-foreground">
-        Cargando...
-      </main>
-    )
+    return <AuthSplash />
   }
 
   if (!user) {

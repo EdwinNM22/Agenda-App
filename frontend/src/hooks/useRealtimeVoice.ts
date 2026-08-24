@@ -195,18 +195,18 @@ export const useRealtimeVoice = () => {
     setStatus("connecting")
 
     try {
-      const rawStream = await captureMicrophone()
+      const micStream = await captureMicrophone()
       if (generation !== generationRef.current) {
-        stopStream(rawStream)
+        stopStream(micStream)
         return
       }
-      streamRef.current = rawStream
-      setLocalStream(rawStream)
+      streamRef.current = micStream
+      setLocalStream(micStream)
 
       const peer = new RTCPeerConnection()
       peerRef.current = peer
-      rawStream.getAudioTracks().forEach((track) => {
-        peer.addTrack(track, rawStream)
+      micStream.getAudioTracks().forEach((track) => {
+        peer.addTrack(track, micStream)
       })
 
       const greetName = userName?.trim() || "ahí"
@@ -214,7 +214,7 @@ export const useRealtimeVoice = () => {
       let remoteReady = false
       let greetingResponseOpen = false
 
-      const setListening = (enabled: boolean, channel: RTCDataChannel | null) => {
+      const setListening = (createResponse: boolean, channel: RTCDataChannel | null) => {
         if (channel?.readyState === "open") {
           channel.send(
             JSON.stringify({
@@ -223,12 +223,10 @@ export const useRealtimeVoice = () => {
                 audio: {
                   input: {
                     turn_detection: {
-                      type: "server_vad",
-                      threshold: enabled ? 0.65 : 0.9,
-                      silence_duration_ms: enabled ? 700 : 1200,
-                      prefix_padding_ms: 300,
-                      interrupt_response: false,
-                      create_response: enabled,
+                      type: "semantic_vad",
+                      eagerness: "low",
+                      interrupt_response: true,
+                      create_response: createResponse,
                     },
                   },
                 },
@@ -243,7 +241,7 @@ export const useRealtimeVoice = () => {
           return
         }
         greetingPlayingRef.current = false
-        logIsi("abrió el micro después del saludo")
+        logIsi("abrió el turno después del saludo")
         setListening(true, greetChannelRef.current)
         syncBusy()
       }

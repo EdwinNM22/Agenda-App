@@ -42,7 +42,21 @@ const isMissingCaptureDevice = (err: unknown) => {
   )
 }
 
-const requestMic = () => navigator.mediaDevices.getUserMedia({ audio: true })
+const micConstraints: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+}
+
+const requestMic = (audio: boolean | MediaTrackConstraints = micConstraints) =>
+  navigator.mediaDevices.getUserMedia({ audio })
+
+const applyBrowserAec = (stream: MediaStream) => {
+  stream.getAudioTracks().forEach((track) => {
+    void track.applyConstraints(micConstraints).catch(() => undefined)
+  })
+  return stream
+}
 
 export const captureMicrophone = async (): Promise<MediaStream> => {
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -56,15 +70,26 @@ export const captureMicrophone = async (): Promise<MediaStream> => {
   setAudioSessionType("auto")
   setAudioSessionType("play-and-record")
 
+  const grab = async () => {
+    try {
+      return applyBrowserAec(await requestMic(micConstraints))
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "OverconstrainedError") {
+        return applyBrowserAec(await requestMic(true))
+      }
+      throw err
+    }
+  }
+
   try {
-    return await requestMic()
+    return await grab()
   } catch (err) {
     if (!isMissingCaptureDevice(err)) {
       throw err
     }
     setAudioSessionType("auto")
     setAudioSessionType("play-and-record")
-    return await requestMic()
+    return applyBrowserAec(await requestMic(true))
   }
 }
 

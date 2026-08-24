@@ -4,16 +4,18 @@ import { useTheme } from "@/lib/theme"
 
 export const ThemeToggle = () => {
   const { theme, toggleTheme } = useTheme()
+  const dark = theme !== "light"
 
   return (
     <Button
       type="button"
       variant="outline"
       size="icon"
+      className="glass-surface size-10 rounded-full border"
       onClick={toggleTheme}
-      aria-label={theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
+      aria-label={dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
     >
-      {theme === "dark" ? <Sun /> : <Moon />}
+      {dark ? <Sun /> : <Moon />}
     </Button>
   )
 }

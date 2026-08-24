@@ -53,6 +53,12 @@ export const api = async <T>(path: string, options: RequestInit = {}): Promise<T
   return payload
 }
 
+export const createAccount = (body: { name: string; email: string; password: string }) =>
+  api<{ user: PublicUser }>("/auth/users", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+
 export const updateProfile = (body: {
   name?: string
   email?: string

@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import type { FastifyInstance } from "fastify"
 import { compare, hash } from "bcryptjs"
+import type { ResultSetHeader } from "mysql2"
 import {
   clampWallpaperValue,
   parseAppearanceTheme,
@@ -32,6 +33,12 @@ import {
 } from "../uploads.js"
 
 type LoginBody = {
+  email: string
+  password: string
+}
+
+type CreateAccountBody = {
+  name: string
   email: string
   password: string
 }
@@ -126,6 +133,57 @@ export const registerAuthRoutes = async (app: FastifyInstance) => {
       const withColor = await fillWallpaperColor(user)
 
       return { token, user: toPublicUser(withColor) }
+    },
+  )
+
+  app.post<{ Body: CreateAccountBody }>(
+    "/auth/users",
+    {
+      onRequest: [app.authenticate],
+      schema: {
+        body: {
+          type: "object",
+          required: ["name", "email", "password"],
+          properties: {
+            name: { type: "string", minLength: 1, maxLength: 120 },
+            email: { type: "string", minLength: 3, maxLength: 255 },
+            password: { type: "string", minLength: 1, maxLength: 200 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const name = request.body.name.trim()
+      const email = request.body.email.trim().toLowerCase()
+      const { password } = request.body
+
+      if (!name) {
+        return reply.code(400).send({ message: "El nombre es obligatorio" })
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return reply.code(400).send({ message: "El correo no es válido" })
+      }
+
+      const [existing] = await pool.query<UserRow[]>(
+        "SELECT id FROM users WHERE email = :email LIMIT 1",
+        { email },
+      )
+      if (existing[0]) {
+        return reply.code(409).send({ message: "Ese correo ya está en uso" })
+      }
+
+      const passwordHash = await hash(password, 10)
+      const [result] = await pool.query<ResultSetHeader>(
+        "INSERT INTO users (email, password_hash, name) VALUES (:email, :passwordHash, :name)",
+        { email, passwordHash, name },
+      )
+
+      const created = await findUserById(result.insertId)
+      if (!created) {
+        return reply.code(500).send({ message: "No se pudo crear la cuenta" })
+      }
+
+      return reply.code(201).send({ user: toPublicUser(created) })
     },
   )
 

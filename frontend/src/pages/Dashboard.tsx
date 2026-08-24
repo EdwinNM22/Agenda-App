@@ -43,10 +43,10 @@ const loadSavedVoice = (): RealtimeVoice => {
 export const DashboardPage = () => {
   const { user, logout } = useAuth()
   const { theme } = useTheme()
-  const { status, error, start, hangUp, audioRef, localStream, remoteStream, busy, hearingUser } =
+  const { status, error, start, hangUp, audioRef, remoteStream, busy, hearingUser } =
     useRealtimeVoice()
   const voiceLevel = useAudioLevel(remoteStream)
-  const userLevel = useAudioLevel(localStream)
+  const userLevel = 0
   const [voice, setVoice] = useState<RealtimeVoice>(DEFAULT_VOICE)
   const live = status === "live"
   const selectingLocked = status === "connecting" || live

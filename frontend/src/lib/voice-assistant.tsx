@@ -49,7 +49,7 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
   const { status, error, start: startSession, hangUp, audioRef, localStream, remoteStream, busy, hearingUser } =
     useRealtimeVoice()
   const voiceLevel = useAudioLevel(remoteStream)
-  const userLevel = useAudioLevel(localStream)
+  const userLevel = 0
   const [voice, setVoiceState] = useState<RealtimeVoice>(DEFAULT_VOICE)
   const live = status === "live"
   const selectingLocked = status === "connecting" || live

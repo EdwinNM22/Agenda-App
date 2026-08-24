@@ -3,6 +3,7 @@ import rnnoiseWasmUrl from "@sapphi-red/web-noise-suppressor/rnnoise.wasm?url"
 import rnnoiseWorkletUrl from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url"
 import speexWasmUrl from "@sapphi-red/web-noise-suppressor/speex.wasm?url"
 import speexWorkletUrl from "@sapphi-red/web-noise-suppressor/speexWorklet.js?url"
+import { setAudioSessionType } from "./audioSession"
 import aecWorkletUrl from "./aec-processor.js?url"
 
 export type VoicePipeline = {
@@ -15,18 +16,6 @@ const workletsAvailable = () =>
   typeof AudioWorkletNode !== "undefined" &&
   typeof AudioContext !== "undefined" &&
   typeof AudioContext.prototype.audioWorklet !== "undefined"
-
-const isSafariOrIOS = () => {
-  if (typeof navigator === "undefined") {
-    return false
-  }
-  const ua = navigator.userAgent
-  const iOS =
-    /iPad|iPhone|iPod/.test(ua) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-  const safari = /Safari/.test(ua) && !/Chrome|Chromium|Edg|Android/.test(ua)
-  return iOS || safari
-}
 
 const passthrough = (micStream: MediaStream): VoicePipeline => ({
   stream: micStream,
@@ -72,12 +61,13 @@ const connectDenoise = async (context: AudioContext, input: AudioNode) => {
 }
 
 const buildVoicePipeline = async (micStream: MediaStream): Promise<VoicePipeline> => {
-  if (!workletsAvailable() || isSafariOrIOS()) {
+  if (!workletsAvailable()) {
     return passthrough(micStream)
   }
 
   const context = new AudioContext({ latencyHint: "interactive" })
   await context.resume()
+  setAudioSessionType("play-and-record")
   await context.audioWorklet.addModule(aecWorkletUrl)
 
   const micSource = context.createMediaStreamSource(micStream)
