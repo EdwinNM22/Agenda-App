@@ -1,9 +1,3 @@
-import {
-  loadRnnoise,
-  loadSpeex,
-  RnnoiseWorkletNode,
-  SpeexWorkletNode,
-} from "@sapphi-red/web-noise-suppressor"
 import rnnoiseSimdUrl from "@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url"
 import rnnoiseWasmUrl from "@sapphi-red/web-noise-suppressor/rnnoise.wasm?url"
 import rnnoiseWorkletUrl from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url"
@@ -17,6 +11,11 @@ export type VoicePipeline = {
   close: () => void
 }
 
+const workletsAvailable = () =>
+  typeof AudioWorkletNode !== "undefined" &&
+  typeof AudioContext !== "undefined" &&
+  typeof AudioContext.prototype.audioWorklet !== "undefined"
+
 const passthrough = (micStream: MediaStream): VoicePipeline => ({
   stream: micStream,
   setEchoReference: () => {},
@@ -24,6 +23,10 @@ const passthrough = (micStream: MediaStream): VoicePipeline => ({
 })
 
 const connectDenoise = async (context: AudioContext, input: AudioNode) => {
+  const { loadRnnoise, loadSpeex, RnnoiseWorkletNode, SpeexWorkletNode } = await import(
+    "@sapphi-red/web-noise-suppressor"
+  )
+
   try {
     if (context.sampleRate === 48000) {
       const wasmBinary = await loadRnnoise({
@@ -57,6 +60,10 @@ const connectDenoise = async (context: AudioContext, input: AudioNode) => {
 }
 
 const buildVoicePipeline = async (micStream: MediaStream): Promise<VoicePipeline> => {
+  if (!workletsAvailable()) {
+    return passthrough(micStream)
+  }
+
   const context = new AudioContext({ sampleRate: 48000, latencyHint: "interactive" })
   await context.resume()
   await context.audioWorklet.addModule(aecWorkletUrl)

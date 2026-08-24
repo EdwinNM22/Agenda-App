@@ -10,8 +10,7 @@ export const useAudioLevel = (stream: MediaStream | null) => {
     }
 
     const audioContext = new AudioContext()
-    const analysisStream = stream.clone()
-    const source = audioContext.createMediaStreamSource(analysisStream)
+    const source = audioContext.createMediaStreamSource(stream)
     const analyser = audioContext.createAnalyser()
     analyser.fftSize = 1024
     analyser.smoothingTimeConstant = 0.65
@@ -58,7 +57,6 @@ export const useAudioLevel = (stream: MediaStream | null) => {
     return () => {
       cancelAnimationFrame(frame)
       source.disconnect()
-      analysisStream.getTracks().forEach((track) => track.stop())
       void audioContext.close()
       setLevel(0)
     }

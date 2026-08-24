@@ -31,7 +31,7 @@ const VOICE_STORAGE_KEY = "agenda.realtimeVoice"
 const statusLabel = {
   idle: "Di “Hey EC” para llamar. Pídele crear una tarea y decide título y descripción.",
   connecting: "Conectando con GPT Realtime…",
-  live: "En llamada. Di “Thanks EC” para colgar, o se cierra a los 5 s de silencio.",
+  live: "En llamada. Di “Thanks EC” para colgar, o se cierra a los 8 s de silencio.",
   error: "No se pudo conectar. Revisa el micrófono y la API key.",
 } as const
 
@@ -43,7 +43,7 @@ const loadSavedVoice = (): RealtimeVoice => {
 export const DashboardPage = () => {
   const { user, logout } = useAuth()
   const { theme } = useTheme()
-  const { status, error, start, hangUp, audioRef, localStream, remoteStream, busy } =
+  const { status, error, start, hangUp, audioRef, localStream, remoteStream, busy, hearingUser } =
     useRealtimeVoice()
   const voiceLevel = useAudioLevel(status === "live" ? remoteStream : null)
   const userLevel = useAudioLevel(status === "live" ? localStream : null)
@@ -55,7 +55,7 @@ export const DashboardPage = () => {
     setVoice(loadSavedVoice())
   }, [])
 
-  useSilenceHangup(live, userLevel, voiceLevel, hangUp, busy)
+  useSilenceHangup(live, userLevel, voiceLevel, hangUp, busy || hearingUser)
 
   useSpeechCommands({
     enabled: status === "idle" || status === "error",
@@ -140,7 +140,7 @@ export const DashboardPage = () => {
 
         <p className="text-sm text-muted-foreground">{statusLabel[status]}</p>
         <p className="text-xs text-muted-foreground">
-          Activar: Hey EC (jei isi). Colgar: Thanks EC (zenks isi) o 5 s de silencio.
+          Activar: Hey EC (jei isi). Colgar: Thanks EC (zenks isi) o 8 s de silencio.
         </p>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {live ? (

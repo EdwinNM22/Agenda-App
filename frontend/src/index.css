@@ -202,15 +202,16 @@ html.wallpaper .assistant-mic {
   box-shadow: 0 18px 50px -18px rgb(0 0 0 / 0.55);
 }
 
+.assistant-orb-glow {
+  -webkit-mask-image: radial-gradient(circle, #000 70%, transparent 100%);
+  mask-image: radial-gradient(circle, #000 70%, transparent 100%);
+}
+
 html.wallpaper .assistant-orb {
-  background-color: rgb(18 18 20 / 0.5) !important;
-  backdrop-filter: blur(18px) saturate(1.25);
-  -webkit-backdrop-filter: blur(18px) saturate(1.25);
-  border: 1px solid rgb(255 255 255 / 0.2);
-  box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.08),
-    0 16px 40px rgb(0 0 0 / 0.4),
-    0 0 36px rgb(140 90 255 / 0.28);
+  background-color: rgb(18 18 20 / 0.42) !important;
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-color: rgb(255 255 255 / 0.16);
 }
 
 html.wallpaper .glass-danger {

@@ -46,7 +46,7 @@ const loadSavedVoice = (): RealtimeVoice => {
 
 export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth()
-  const { status, error, start: startSession, hangUp, audioRef, localStream, remoteStream, busy } =
+  const { status, error, start: startSession, hangUp, audioRef, localStream, remoteStream, busy, hearingUser } =
     useRealtimeVoice()
   const voiceLevel = useAudioLevel(status === "live" ? remoteStream : null)
   const userLevel = useAudioLevel(status === "live" ? localStream : null)
@@ -70,7 +70,7 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
     [startSession, user?.name, voice],
   )
 
-  useSilenceHangup(live, userLevel, voiceLevel, hangUp, busy)
+  useSilenceHangup(live, userLevel, voiceLevel, hangUp, busy || hearingUser)
 
   const value = useMemo(
     () => ({

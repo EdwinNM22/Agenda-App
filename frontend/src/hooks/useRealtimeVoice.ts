@@ -6,6 +6,88 @@ import type { RealtimeVoice } from "@/lib/voices"
 
 export type VoiceStatus = "idle" | "connecting" | "live" | "error"
 
+let assistantHeardBuffer = ""
+let assistantSaidBuffer = ""
+
+const logIsi = (label: string, extra?: unknown) => {
+  const line =
+    extra === undefined || extra === ""
+      ? label
+      : `${label} ${typeof extra === "string" ? extra : JSON.stringify(extra)}`
+  console.log(`[Isi] ${line}`)
+  void api("/realtime/log", {
+    method: "POST",
+    body: JSON.stringify({ message: line }),
+  }).catch(() => undefined)
+}
+
+const nestedTranscript = (event: Record<string, unknown>) => {
+  if (typeof event.transcript === "string" && event.transcript.trim()) {
+    return event.transcript.trim()
+  }
+  const item = event.item as { content?: Array<{ transcript?: string }> } | undefined
+  const fromItem = item?.content?.find((part) => part.transcript?.trim())?.transcript
+  return fromItem?.trim() || ""
+}
+
+const logAssistantHearing = (event: Record<string, unknown>) => {
+  const type = typeof event.type === "string" ? event.type : ""
+  const delta = typeof event.delta === "string" ? event.delta : ""
+
+  if (type === "input_audio_buffer.speech_started") {
+    assistantHeardBuffer = ""
+    logIsi("empezó a oír")
+    return
+  }
+  if (type === "input_audio_buffer.speech_stopped") {
+    logIsi("dejó de oír")
+    return
+  }
+  if (type.includes("input_audio_transcription.delta") && delta) {
+    assistantHeardBuffer += delta
+    return
+  }
+  if (type.includes("input_audio_transcription.completed")) {
+    const heard = nestedTranscript(event) || assistantHeardBuffer
+    assistantHeardBuffer = ""
+    logIsi("escuchó:", heard || "(vacío)")
+    return
+  }
+  if (type.includes("input_audio_transcription.failed")) {
+    logIsi("no pudo transcribir lo que oyó")
+    return
+  }
+  if (type === "conversation.item.created") {
+    const heard = nestedTranscript(event)
+    if (heard) {
+      logIsi("escuchó:", heard)
+    }
+    return
+  }
+  if (type === "response.created") {
+    assistantSaidBuffer = ""
+    logIsi("empezó a hablar")
+    return
+  }
+  if ((type.includes("output_audio_transcript.delta") || type.includes("audio_transcript.delta")) && delta) {
+    assistantSaidBuffer += delta
+    return
+  }
+  if (type.includes("output_audio_transcript.done") || type === "response.audio_transcript.done") {
+    const said = nestedTranscript(event) || assistantSaidBuffer
+    assistantSaidBuffer = ""
+    logIsi("dijo:", said || "(sin texto)")
+    return
+  }
+  if (type === "response.done") {
+    if (assistantSaidBuffer.trim()) {
+      logIsi("dijo:", assistantSaidBuffer.trim())
+      assistantSaidBuffer = ""
+    }
+    logIsi("terminó de hablar")
+  }
+}
+
 const stopStream = (stream: MediaStream | null) => {
   stream?.getTracks().forEach((track) => track.stop())
 }
@@ -44,7 +126,10 @@ export const useRealtimeVoice = () => {
   const responseOpenRef = useRef(0)
   const toolsInFlightRef = useRef(0)
   const awaitingResponseRef = useRef(false)
+  const greetedRef = useRef(false)
+  const greetingPlayingRef = useRef(false)
   const [busy, setBusy] = useState(false)
+  const [hearingUser, setHearingUser] = useState(false)
 
   const syncBusy = useCallback(() => {
     const next =
@@ -65,6 +150,9 @@ export const useRealtimeVoice = () => {
     responseOpenRef.current = 0
     toolsInFlightRef.current = 0
     awaitingResponseRef.current = false
+    greetedRef.current = false
+    greetingPlayingRef.current = false
+    setHearingUser(false)
     stopStream(streamRef.current)
     streamRef.current = null
     if (audioRef.current) {
@@ -76,7 +164,7 @@ export const useRealtimeVoice = () => {
     setStatus("idle")
   }, [])
 
-  const start = useCallback(async (voice: RealtimeVoice, _userName?: string) => {
+  const start = useCallback(async (voice: RealtimeVoice, userName?: string) => {
     hangUp()
     const generation = generationRef.current
     setError(null)
@@ -106,11 +194,87 @@ export const useRealtimeVoice = () => {
       pipelineRef.current = pipeline
       setLocalStream(pipeline.stream)
 
+      const setMicEnabled = (enabled: boolean) => {
+        pipelineRef.current?.stream.getAudioTracks().forEach((track) => {
+          track.enabled = enabled
+        })
+      }
+      setMicEnabled(false)
+
       const peer = new RTCPeerConnection()
       peerRef.current = peer
       pipeline.stream.getTracks().forEach((track) => peer.addTrack(track, pipeline.stream))
 
+      const greetName = userName?.trim() || "ahí"
+      const greetChannelRef = { current: null as RTCDataChannel | null }
+      let remoteReady = false
+      let greetingResponseOpen = false
+
+      const setListening = (enabled: boolean, channel: RTCDataChannel | null) => {
+        if (channel?.readyState === "open") {
+          channel.send(
+            JSON.stringify({
+              type: "session.update",
+              session: {
+                audio: {
+                  input: {
+                    turn_detection: {
+                      type: "server_vad",
+                      threshold: enabled ? 0.65 : 0.9,
+                      silence_duration_ms: enabled ? 700 : 1200,
+                      prefix_padding_ms: 300,
+                      interrupt_response: enabled,
+                      create_response: enabled,
+                    },
+                  },
+                },
+              },
+            }),
+          )
+        }
+        setMicEnabled(enabled)
+      }
+
+      const finishGreeting = () => {
+        if (!greetingPlayingRef.current) {
+          return
+        }
+        greetingPlayingRef.current = false
+        logIsi("abrió el micro después del saludo")
+        setListening(true, greetChannelRef.current)
+      }
+
+      const tryGreet = () => {
+        const channel = greetChannelRef.current
+        if (greetedRef.current || !remoteReady || !channel || channel.readyState !== "open") {
+          return
+        }
+        greetedRef.current = true
+        greetingPlayingRef.current = true
+        greetingResponseOpen = true
+        logIsi("envió el saludo inicial")
+        setListening(false, channel)
+        channel.send(
+          JSON.stringify({
+            type: "response.create",
+            response: {
+              instructions: `Acaba de empezar la llamada. Saluda a ${greetName} en una sola frase, cercana y breve. Preséntate como Isi. No listes funciones ni preguntes qué puede hacer. No sigas hablando después. Espera en silencio a que te hablen.`,
+            },
+          }),
+        )
+        window.setTimeout(() => {
+          if (generation !== generationRef.current) {
+            return
+          }
+          finishGreeting()
+        }, 10000)
+      }
+
       peer.ontrack = (event) => {
+        if (event.track.kind !== "audio" || remoteReady) {
+          return
+        }
+        remoteReady = true
         const remote = event.streams[0] ?? new MediaStream([event.track])
         setRemoteStream(remote)
         pipelineRef.current?.setEchoReference(remote)
@@ -121,11 +285,53 @@ export const useRealtimeVoice = () => {
           audio.muted = false
           void audio.play().catch(() => {})
         }
+        window.setTimeout(() => {
+          if (generation !== generationRef.current) {
+            return
+          }
+          tryGreet()
+        }, 280)
       }
 
-      const attachChannel = (channel: RTCDataChannel) => {
+      const attachChannel = (channel: RTCDataChannel, canGreet: boolean) => {
         if (!channelRef.current) {
           channelRef.current = channel
+        }
+        const enableTranscription = () => {
+          if (channel.readyState !== "open") {
+            return
+          }
+          channel.send(
+            JSON.stringify({
+              type: "session.update",
+              session: {
+                audio: {
+                  input: {
+                    transcription: {
+                      model: "whisper-1",
+                      language: "es",
+                    },
+                  },
+                },
+              },
+            }),
+          )
+        }
+        if (canGreet) {
+          greetChannelRef.current = channel
+          if (channel.readyState === "open") {
+            enableTranscription()
+            tryGreet()
+          } else {
+            channel.addEventListener(
+              "open",
+              () => {
+                enableTranscription()
+                tryGreet()
+              },
+              { once: true },
+            )
+          }
         }
         channel.addEventListener("message", (message) => {
           let event: unknown
@@ -135,6 +341,13 @@ export const useRealtimeVoice = () => {
             return
           }
           const type = (event as { type?: string }).type
+          if (type === "input_audio_buffer.speech_started") {
+            setHearingUser(true)
+          }
+          if (type === "input_audio_buffer.speech_stopped") {
+            setHearingUser(false)
+          }
+          logAssistantHearing(event as Record<string, unknown>)
           if (type === "response.created") {
             awaitingResponseRef.current = false
             responseOpenRef.current += 1
@@ -144,6 +357,15 @@ export const useRealtimeVoice = () => {
             awaitingResponseRef.current = false
             responseOpenRef.current = Math.max(0, responseOpenRef.current - 1)
             syncBusy()
+            if (greetingResponseOpen) {
+              greetingResponseOpen = false
+              window.setTimeout(() => {
+                if (generation !== generationRef.current) {
+                  return
+                }
+                finishGreeting()
+              }, 1800)
+            }
           }
           void handleRealtimeToolEvent(
             channel,
@@ -169,9 +391,9 @@ export const useRealtimeVoice = () => {
       }
 
       peer.ondatachannel = (event) => {
-        attachChannel(event.channel)
+        attachChannel(event.channel, false)
       }
-      attachChannel(peer.createDataChannel("oai-events"))
+      attachChannel(peer.createDataChannel("oai-events"), true)
 
       const offer = await peer.createOffer()
       await peer.setLocalDescription(offer)
@@ -209,5 +431,5 @@ export const useRealtimeVoice = () => {
     }
   }, [hangUp])
 
-  return { status, error, start, hangUp, audioRef, localStream, remoteStream, busy }
+  return { status, error, start, hangUp, audioRef, localStream, remoteStream, busy, hearingUser }
 }

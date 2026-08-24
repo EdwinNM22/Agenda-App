@@ -25,7 +25,7 @@ export const FloatingAssistant = () => {
             key="assistant-orb"
             type="button"
             layoutId="assistant-orb"
-            className="assistant-orb pointer-events-auto fixed right-4 z-40 size-24 overflow-hidden rounded-full border bg-card shadow-lg ring-1 ring-foreground/10"
+            className="assistant-orb glass-surface pointer-events-auto fixed right-4 z-40 size-24 overflow-hidden rounded-full border"
             style={{ bottom: orbBottom }}
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -34,6 +34,7 @@ export const FloatingAssistant = () => {
             onClick={() => navigate("/")}
             aria-label="Volver al asistente"
           >
+            <div className="assistant-orb-glow size-full">
             <Orb
               hue={270}
               hoverIntensity={0.22}
@@ -44,6 +45,7 @@ export const FloatingAssistant = () => {
                 theme === "wallpaper" ? (wallpaperColor ?? "#1c1c1e") : theme === "light" ? "#ffffff" : "#1a1a1a"
               }
             />
+            </div>
           </motion.button>
         ) : null}
       </AnimatePresence>

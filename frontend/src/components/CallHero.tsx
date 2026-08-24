@@ -47,12 +47,13 @@ export const CallHero = () => {
               <motion.div
                 key="orb"
                 layoutId="assistant-orb"
-                className="assistant-orb relative size-40 overflow-hidden rounded-full"
+                className="assistant-orb glass-surface relative size-40 overflow-hidden rounded-full border"
                 initial={{ opacity: 0, scale: 0.86 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ type: "spring", stiffness: 280, damping: 26 }}
               >
+                <div className="assistant-orb-glow size-full">
                 <Orb
                   hue={270}
                   hoverIntensity={0.22}
@@ -63,6 +64,7 @@ export const CallHero = () => {
                     theme === "wallpaper" ? (wallpaperColor ?? "#1c1c1e") : theme === "light" ? "#f6f6f6" : "#0a0a0a"
                   }
                 />
+                </div>
               </motion.div>
             ) : (
               <motion.button

@@ -178,6 +178,8 @@ Con auriculares no hay problema: el mic no oye a Isi. Con altavoz el mic recoge 
 
 El pipeline se arma en `frontend/src/audio/voicePipeline.ts` y se engancha desde `useRealtimeVoice`. El mic **nunca se apaga**.
 
+`@sapphi-red/web-noise-suppressor` hace `class … extends AudioWorkletNode` **al importarse**. Eso tumba la página si el navegador no tiene Worklets (HTTP sin HTTPS, WebView, etc.). Por eso el paquete se carga con `import()` **solo al pulsar Hablar**, no al abrir la app. Si no hay `AudioWorkletNode`, se usa el micrófono sin RNNoise.
+
 ```
 mic (getUserMedia, echoCancellation)
         │

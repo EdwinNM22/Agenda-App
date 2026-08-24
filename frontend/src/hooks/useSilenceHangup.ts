@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
 
-const SILENCE_MS = 5000
+const SILENCE_MS = 8000
 const CHECK_EVERY_MS = 250
 const USER_SPEECH = 0.2
 const AI_SPEECH = 0.12

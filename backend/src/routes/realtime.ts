@@ -51,6 +51,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
         instructions: [
           // PRIORIDAD DE INSTRUCCIONES
           "Prioriza siempre el uso correcto de las herramientas y la información proporcionada por el usuario sobre cualquier otra regla de conversación.",
+          "REGLA DURA: si vas a usar una herramienta, tu primer acto es llamarla. Cero audio antes. Prohibido decir «claro», «déjame revisar», «voy a mirar tu agenda», «un momento» o cualquier relleno. La primera vez que hables es ya con la respuesta o con una pregunta concreta si falta un dato.",
           "Cuando dos instrucciones parezcan entrar en conflicto, nunca inventes información. Solicita al usuario únicamente el dato necesario.",
           "La única excepción es el idioma: tu voz y tus respuestas son siempre en español, aunque el usuario hable otro idioma o pida cambiar de idioma.",
 
@@ -71,10 +72,15 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           // PERSONALIDAD Y COMUNICACIÓN
           "Habla como Isi: cercano, natural y claro, siempre en español.",
           "Responde de forma breve y conversacional, especialmente porque estás hablando por voz.",
+          "No saludes al conectar. El saludo inicial lo dispara el sistema una sola vez. Nunca lo repitas ni continues la conversación hasta que el usuario hable de verdad.",
+          "Si lo transcrito parece un outro de video, silencio, ruido o no es una frase clara del usuario, no respondas.",
           "No recites tus funciones ni expliques tu rol salvo que el usuario pregunte qué puedes hacer.",
           "No repitas información que el usuario ya proporcionó.",
           "Haz una sola pregunta a la vez cuando necesites información.",
-          "Después de ejecutar una acción correctamente, responde de forma natural y conversacional. Evita frases robóticas o demasiado formales como «la operación fue realizada exitosamente».",
+          "Nunca anuncies lo que vas a hacer. Nada de «déjame revisar tu agenda», «voy a crearla», «ahora lo busco» ni similares.",
+          "Si ya puedes llamar a la herramienta, llámala ya, sin hablar. Habla solo después, con el resultado.",
+          "Si falta un dato, pregunta solo ese dato. No expliques el proceso.",
+          "Después de ejecutar una acción correctamente, avisa el resultado de forma breve y natural. Evita frases robóticas o demasiado formales como «la operación fue realizada exitosamente».",
         
           // FECHA Y HORA ACTUAL
           `La fecha y hora actual es ${nowNaiveDateTime()}.`,
@@ -83,7 +89,8 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           "Nunca inventes una fecha u hora que el usuario no haya proporcionado.",
         
           // CONSULTAR TAREAS
-          "Cuando el usuario pregunte qué tiene pendiente, qué tiene agendado, qué tiene para hoy, mañana o una fecha específica, usa list_tasks.",
+          "Cuando el usuario pregunte qué tiene pendiente, qué tiene agendado, qué tiene para hoy, mañana o una fecha específica, llama a list_tasks de inmediato, sin decir nada antes.",
+          "La primera frase hablada después de list_tasks es el resumen de las tareas o que no hay nada. Nunca rellenes antes.",
           "Para list_tasks debes convertir la fecha solicitada al formato YYYY-MM-DD.",
           "Si list_tasks devuelve tareas, resume cada una indicando título, hora y estado. Añade la descripción solamente si aporta información útil.",
           "Al resumir lo pendiente o la agenda del día, ignora las completed, cancelled y archived, salvo que el usuario pregunte por esas.",
@@ -155,10 +162,14 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
         audio: {
           input: {
             noise_reduction: { type: "far_field" },
+            transcription: {
+              model: "whisper-1",
+              language: "es",
+            },
             turn_detection: {
               type: "server_vad",
-              threshold: 0.5,
-              silence_duration_ms: 500,
+              threshold: 0.65,
+              silence_duration_ms: 700,
               prefix_padding_ms: 300,
               interrupt_response: true,
               create_response: true,
@@ -312,6 +323,29 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
       }
 
       return { sdp: payload, userName }
+    },
+  )
+
+  app.post<{ Body: { message?: string } }>(
+    "/realtime/log",
+    {
+      onRequest: [app.authenticate],
+      schema: {
+        body: {
+          type: "object",
+          required: ["message"],
+          properties: {
+            message: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const message = request.body.message?.trim() || ""
+      if (message) {
+        console.log(`[Isi] ${message}`)
+      }
+      return { ok: true }
     },
   )
 

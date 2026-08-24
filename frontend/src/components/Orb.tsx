@@ -176,6 +176,8 @@ export default function Orb({
       vec2 center = iResolution.xy * 0.5;
       float size = min(iResolution.x, iResolution.y);
       vec2 uv = (fragCoord - center) / size * 2.0;
+      float edge = length(uv);
+      uv *= 1.12;
 
       float angle = rot;
       float s = sin(angle);
@@ -185,7 +187,10 @@ export default function Orb({
       uv.x += hover * hoverIntensity * 0.1 * sin(uv.y * 10.0 + iTime);
       uv.y += hover * hoverIntensity * 0.1 * sin(uv.x * 10.0 + iTime);
 
-      return draw(uv);
+      vec4 col = draw(uv);
+      float fade = smoothstep(1.0, 0.78, edge);
+      col.a *= fade;
+      return col;
     }
 
     void main() {
