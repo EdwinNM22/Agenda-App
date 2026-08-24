@@ -1,4 +1,4 @@
-import type { Task } from "@/lib/tasks"
+import { hydrateTask, type Task } from "@/lib/tasks"
 
 export type TaskSocketEvent =
   | { type: "task.created"; task: Task }
@@ -6,10 +6,7 @@ export type TaskSocketEvent =
   | { type: "task.deleted"; id: number }
   | { type: "pong" }
 
-const withAttachments = (task: Task): Task => ({
-  ...task,
-  attachments: task.attachments ?? [],
-})
+const withAttachments = (task: Task): Task => hydrateTask(task)
 
 export const applyTaskSocketEvent = (tasks: Task[], event: TaskSocketEvent): Task[] => {
   if (event.type === "task.created") {

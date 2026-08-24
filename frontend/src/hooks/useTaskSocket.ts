@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { wsUrl } from "@/lib/apiBase"
 import { parseTaskSocketEvent, type TaskSocketEvent } from "@/lib/taskSocket"
 
 export const useTaskSocket = (onEvent: (event: TaskSocketEvent) => void) => {
@@ -20,8 +21,7 @@ export const useTaskSocket = (onEvent: (event: TaskSocketEvent) => void) => {
       if (closed) {
         return
       }
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-      const url = `${protocol}//${window.location.host}/api/ws/tasks?token=${encodeURIComponent(token)}`
+      const url = wsUrl(`/ws/tasks?token=${encodeURIComponent(token)}`)
       socket = new WebSocket(url)
 
       socket.onopen = () => {

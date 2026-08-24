@@ -1,3 +1,4 @@
+import { apiUrl, assetUrl } from "@/lib/apiBase"
 import { REALTIME_VOICES } from "@/lib/voices"
 
 export type PublicUser = {
@@ -18,6 +19,13 @@ type ApiError = {
   message?: string
 }
 
+export const withAssetHost = <T extends PublicUser>(user: T): T => ({
+  ...user,
+  avatarUrl: assetUrl(user.avatarUrl) || null,
+  avatarThumbUrl: assetUrl(user.avatarThumbUrl) || null,
+  wallpaperUrl: assetUrl(user.wallpaperUrl) || null,
+})
+
 export const api = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
   const token = localStorage.getItem("token")
   const headers = new Headers(options.headers)
@@ -31,7 +39,7 @@ export const api = async <T>(path: string, options: RequestInit = {}): Promise<T
     headers.set("Authorization", `Bearer ${token}`)
   }
 
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(apiUrl(path), {
     ...options,
     headers,
   })
@@ -92,7 +100,7 @@ export const previewVoice = async (voice: string, name: string, signal?: AbortSi
   }
 
   const token = localStorage.getItem("token")
-  const request = fetch("/api/realtime/preview", {
+  const request = fetch(apiUrl("/realtime/preview"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

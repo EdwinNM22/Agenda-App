@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useAudioLevel } from "@/hooks/useAudioLevel"
 import { useRealtimeVoice } from "@/hooks/useRealtimeVoice"
 import { useSilenceHangup } from "@/hooks/useSilenceHangup"
 import { useSpeechCommands } from "@/hooks/useSpeechCommands"
@@ -43,10 +42,9 @@ const loadSavedVoice = (): RealtimeVoice => {
 export const DashboardPage = () => {
   const { user, logout } = useAuth()
   const { theme } = useTheme()
-  const { status, error, start, hangUp, audioRef, localStream, remoteStream, busy, hearingUser } =
-    useRealtimeVoice()
-  const voiceLevel = useAudioLevel(status === "live" ? remoteStream : null)
-  const userLevel = useAudioLevel(status === "live" ? localStream : null)
+  const { status, error, start, hangUp, audioRef, busy, hearingUser } = useRealtimeVoice()
+  const voiceLevel = 0
+  const userLevel = 0
   const [voice, setVoice] = useState<RealtimeVoice>(DEFAULT_VOICE)
   const live = status === "live"
   const selectingLocked = status === "connecting" || live

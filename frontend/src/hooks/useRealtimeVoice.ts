@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { createVoicePipeline, type VoicePipeline } from "@/audio/voicePipeline"
 import { api } from "@/lib/api"
 import { handleRealtimeToolEvent } from "@/lib/realtimeTools"
 import type { RealtimeVoice } from "@/lib/voices"
@@ -116,7 +115,6 @@ export const useRealtimeVoice = () => {
   const [error, setError] = useState<string | null>(null)
   const peerRef = useRef<RTCPeerConnection | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const pipelineRef = useRef<VoicePipeline | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
@@ -139,10 +137,7 @@ export const useRealtimeVoice = () => {
     setBusy((prev) => (prev === next ? prev : next))
   }, [])
 
-  const hangUp = useCallback(() => {
-    generationRef.current += 1
-    pipelineRef.current?.close()
-    pipelineRef.current = null
+  const releaseCall = useCallback(() => {
     peerRef.current?.close()
     peerRef.current = null
     channelRef.current = null
@@ -156,54 +151,49 @@ export const useRealtimeVoice = () => {
     stopStream(streamRef.current)
     streamRef.current = null
     if (audioRef.current) {
+      audioRef.current.pause()
       audioRef.current.srcObject = null
     }
     setLocalStream(null)
     setRemoteStream(null)
     setBusy(false)
-    setStatus("idle")
   }, [])
 
+  const hangUp = useCallback(() => {
+    generationRef.current += 1
+    releaseCall()
+    setStatus("idle")
+  }, [releaseCall])
+
   const start = useCallback(async (voice: RealtimeVoice, userName?: string) => {
-    hangUp()
-    const generation = generationRef.current
+    const generation = generationRef.current + 1
+    generationRef.current = generation
+    peerRef.current?.close()
+    peerRef.current = null
+    channelRef.current = null
+    stopStream(streamRef.current)
+    streamRef.current = null
+    setLocalStream(null)
+    setRemoteStream(null)
     setError(null)
     setStatus("connecting")
 
     try {
       const rawStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: false,
-          autoGainControl: false,
-          channelCount: 1,
-        },
+        audio: true,
       })
       if (generation !== generationRef.current) {
         stopStream(rawStream)
         return
       }
       streamRef.current = rawStream
-
-      const pipeline = await createVoicePipeline(rawStream)
-      if (generation !== generationRef.current) {
-        pipeline.close()
-        stopStream(rawStream)
-        return
-      }
-      pipelineRef.current = pipeline
-      setLocalStream(pipeline.stream)
-
-      const setMicEnabled = (enabled: boolean) => {
-        pipelineRef.current?.stream.getAudioTracks().forEach((track) => {
-          track.enabled = enabled
-        })
-      }
-      setMicEnabled(false)
+      setLocalStream(rawStream)
 
       const peer = new RTCPeerConnection()
       peerRef.current = peer
-      pipeline.stream.getTracks().forEach((track) => peer.addTrack(track, pipeline.stream))
+      rawStream.getAudioTracks().forEach((track) => {
+        peer.addTrack(track, rawStream)
+      })
 
       const greetName = userName?.trim() || "ahí"
       const greetChannelRef = { current: null as RTCDataChannel | null }
@@ -232,7 +222,6 @@ export const useRealtimeVoice = () => {
             }),
           )
         }
-        setMicEnabled(enabled)
       }
 
       const finishGreeting = () => {
@@ -277,7 +266,6 @@ export const useRealtimeVoice = () => {
         remoteReady = true
         const remote = event.streams[0] ?? new MediaStream([event.track])
         setRemoteStream(remote)
-        pipelineRef.current?.setEchoReference(remote)
         const audio = audioRef.current
         if (audio) {
           audio.srcObject = remote
@@ -352,7 +340,6 @@ export const useRealtimeVoice = () => {
             awaitingResponseRef.current = false
             responseOpenRef.current += 1
             syncBusy()
-            setMicEnabled(false)
           }
           if (type === "response.done") {
             awaitingResponseRef.current = false
@@ -366,14 +353,7 @@ export const useRealtimeVoice = () => {
                 }
                 finishGreeting()
               }, 1800)
-              return
             }
-            window.setTimeout(() => {
-              if (generation !== generationRef.current || greetingPlayingRef.current) {
-                return
-              }
-              setMicEnabled(true)
-            }, 700)
           }
           void handleRealtimeToolEvent(
             channel,
@@ -431,7 +411,7 @@ export const useRealtimeVoice = () => {
       setStatus("error")
       setError(err instanceof Error ? err.message : "No se pudo iniciar la conversación")
     }
-  }, [hangUp, syncBusy])
+  }, [hangUp, releaseCall, syncBusy])
 
   useEffect(() => {
     return () => {

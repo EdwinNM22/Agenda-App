@@ -1,4 +1,5 @@
 import { api } from "@/lib/api"
+import { assetUrl } from "@/lib/apiBase"
 
 export const TASK_STATUSES = ["pending", "completed", "cancelled", "archived"] as const
 
@@ -26,8 +27,17 @@ export type Task = {
 export const isImageAttachment = (attachment: TaskAttachment) =>
   attachment.mimeType.startsWith("image/")
 
+export const hydrateTask = (task: Task): Task => ({
+  ...task,
+  attachments: (task.attachments ?? []).map((item) => ({
+    ...item,
+    url: assetUrl(item.url),
+    thumbUrl: item.thumbUrl ? assetUrl(item.thumbUrl) : null,
+  })),
+})
+
 export const attachmentThumbUrl = (attachment: TaskAttachment) =>
-  attachment.thumbUrl || attachment.url
+  assetUrl(attachment.thumbUrl || attachment.url)
 
 export const taskImages = (task: Task) => (task.attachments ?? []).filter(isImageAttachment)
 
@@ -105,21 +115,24 @@ export const toNaiveDateTime = (value?: string | null): string | null => {
   return `${date} ${formatTwelveHour(hour, minute)}`
 }
 
-export const listTasks = (date?: string) => {
+export const listTasks = async (date?: string) => {
   const path = date ? `/tasks?date=${encodeURIComponent(date)}` : "/tasks"
-  return api<{ tasks: Task[] }>(path)
+  const data = await api<{ tasks: Task[] }>(path)
+  return { tasks: data.tasks.map(hydrateTask) }
 }
 
-export const createTask = (
+export const createTask = async (
   title: string,
   description: string,
   dueAt: string | null,
   status: TaskStatus = "pending",
-) =>
-  api<{ task: Task }>("/tasks", {
+) => {
+  const data = await api<{ task: Task }>("/tasks", {
     method: "POST",
     body: JSON.stringify({ title, description, dueAt: toNaiveDateTime(dueAt), status }),
   })
+  return { task: hydrateTask(data.task) }
+}
 
 export type TaskPatch = {
   title?: string
@@ -128,31 +141,45 @@ export type TaskPatch = {
   status?: TaskStatus
 }
 
-export const updateTask = (id: number, patch: TaskPatch) =>
-  api<{ task: Task }>(`/tasks/${id}`, {
+export const updateTask = async (id: number, patch: TaskPatch) => {
+  const data = await api<{ task: Task }>(`/tasks/${id}`, {
     method: "PATCH",
     body: JSON.stringify({
       ...patch,
       dueAt: patch.dueAt !== undefined ? toNaiveDateTime(patch.dueAt) : undefined,
     }),
   })
+  return { task: hydrateTask(data.task) }
+}
 
 export const deleteTask = (id: number) =>
   api<{ ok: true }>(`/tasks/${id}`, { method: "DELETE" })
 
-export const uploadTaskAttachment = (taskId: number, file: File) => {
+export const uploadTaskAttachment = async (taskId: number, file: File) => {
   const form = new FormData()
   form.append("file", file)
-  return api<{ attachment: TaskAttachment; task: Task }>(`/tasks/${taskId}/attachments`, {
-    method: "POST",
-    body: form,
-  })
+  const data = await api<{ attachment: TaskAttachment; task: Task }>(
+    `/tasks/${taskId}/attachments`,
+    {
+      method: "POST",
+      body: form,
+    },
+  )
+  const task = hydrateTask(data.task)
+  const attachment =
+    task.attachments.find((item) => item.id === data.attachment.id) ?? data.attachment
+  return { attachment, task }
 }
 
-export const deleteTaskAttachment = (taskId: number, attachmentId: number) =>
-  api<{ ok: true; task: Task }>(`/tasks/${taskId}/attachments/${attachmentId}`, {
-    method: "DELETE",
-  })
+export const deleteTaskAttachment = async (taskId: number, attachmentId: number) => {
+  const data = await api<{ ok: true; task: Task }>(
+    `/tasks/${taskId}/attachments/${attachmentId}`,
+    {
+      method: "DELETE",
+    },
+  )
+  return { ok: true as const, task: hydrateTask(data.task) }
+}
 
 export const formatTaskDueAt = (dueAt: string | null): string => {
   if (!dueAt) {

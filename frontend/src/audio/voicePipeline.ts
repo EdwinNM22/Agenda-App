@@ -16,6 +16,18 @@ const workletsAvailable = () =>
   typeof AudioContext !== "undefined" &&
   typeof AudioContext.prototype.audioWorklet !== "undefined"
 
+const isSafariOrIOS = () => {
+  if (typeof navigator === "undefined") {
+    return false
+  }
+  const ua = navigator.userAgent
+  const iOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  const safari = /Safari/.test(ua) && !/Chrome|Chromium|Edg|Android/.test(ua)
+  return iOS || safari
+}
+
 const passthrough = (micStream: MediaStream): VoicePipeline => ({
   stream: micStream,
   setEchoReference: () => {},
@@ -60,11 +72,11 @@ const connectDenoise = async (context: AudioContext, input: AudioNode) => {
 }
 
 const buildVoicePipeline = async (micStream: MediaStream): Promise<VoicePipeline> => {
-  if (!workletsAvailable()) {
+  if (!workletsAvailable() || isSafariOrIOS()) {
     return passthrough(micStream)
   }
 
-  const context = new AudioContext({ sampleRate: 48000, latencyHint: "interactive" })
+  const context = new AudioContext({ latencyHint: "interactive" })
   await context.resume()
   await context.audioWorklet.addModule(aecWorkletUrl)
 

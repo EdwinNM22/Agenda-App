@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { api, type PublicUser } from "@/lib/api"
+import { api, withAssetHost, type PublicUser } from "@/lib/api"
 
 type AuthContextValue = {
   user: PublicUser | null
@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     api<{ user: PublicUser }>("/auth/me")
-      .then((data) => setUser(data.user))
+      .then((data) => setUser(withAssetHost(data.user)))
       .catch(() => {
         localStorage.removeItem("token")
         setUser(null)
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     })
 
     localStorage.setItem("token", data.token)
-    setUser(data.user)
+    setUser(withAssetHost(data.user))
   }, [])
 
   const logout = useCallback(() => {
@@ -54,9 +54,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null)
   }, [])
 
+  const saveUser = useCallback((next: PublicUser) => {
+    setUser(withAssetHost(next))
+  }, [])
+
   const value = useMemo(
-    () => ({ user, loading, login, logout, setUser }),
-    [user, loading, login, logout],
+    () => ({ user, loading, login, logout, setUser: saveUser }),
+    [user, loading, login, logout, saveUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
