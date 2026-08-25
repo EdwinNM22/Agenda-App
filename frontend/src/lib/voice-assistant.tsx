@@ -9,7 +9,7 @@ import {
   type RefObject,
 } from "react"
 import { useAudioLevel } from "@/hooks/useAudioLevel"
-import { useRealtimeVoice, type VoiceStatus } from "@/hooks/useRealtimeVoice"
+import { useRealtimeVoice, type ToolActivity, type VoiceStatus } from "@/hooks/useRealtimeVoice"
 import { useSilenceHangup } from "@/hooks/useSilenceHangup"
 import { useAuth } from "@/lib/auth"
 import {
@@ -29,6 +29,7 @@ type VoiceAssistantContextValue = {
   localStream: MediaStream | null
   remoteStream: MediaStream | null
   busy: boolean
+  activity: ToolActivity
   voiceLevel: number
   userLevel: number
   voice: RealtimeVoice
@@ -46,7 +47,7 @@ const loadSavedVoice = (): RealtimeVoice => {
 
 export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth()
-  const { status, error, start: startSession, hangUp, audioRef, localStream, remoteStream, busy, hearingUser } =
+  const { status, error, start: startSession, hangUp, audioRef, localStream, remoteStream, busy, hearingUser, activity } =
     useRealtimeVoice()
   const voiceLevel = useAudioLevel(remoteStream)
   const userLevel = 0
@@ -82,6 +83,7 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
       localStream,
       remoteStream,
       busy,
+      activity,
       voiceLevel,
       userLevel,
       voice,
@@ -98,6 +100,7 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
       localStream,
       remoteStream,
       busy,
+      activity,
       voiceLevel,
       userLevel,
       voice,

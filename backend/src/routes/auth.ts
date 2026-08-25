@@ -174,7 +174,7 @@ export const registerAuthRoutes = async (app: FastifyInstance) => {
 
       const passwordHash = await hash(password, 10)
       const [result] = await pool.query<ResultSetHeader>(
-        "INSERT INTO users (email, password_hash, name) VALUES (:email, :passwordHash, :name)",
+        "INSERT INTO users (email, password_hash, name, theme) VALUES (:email, :passwordHash, :name, 'dark')",
         { email, passwordHash, name },
       )
 

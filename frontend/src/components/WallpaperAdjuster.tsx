@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Check, X } from "lucide-react"
+import { BusyOverlay, BusySpinner } from "@/components/BusyState"
 import { Button } from "@/components/ui/button"
 
 export type WallpaperFrame = {
@@ -214,6 +215,7 @@ export const WallpaperAdjuster = ({
               <div className="pointer-events-none absolute inset-0 bg-black/30" />
               <span className="pointer-events-none absolute top-[0.72rem] left-1/2 z-20 h-[1.4rem] w-[5.85rem] -translate-x-1/2 rounded-full bg-black" />
               <span className="pointer-events-none absolute bottom-[0.45rem] left-1/2 z-20 h-[0.28rem] w-[7.25rem] -translate-x-1/2 rounded-full bg-white/50" />
+              {busy ? <BusyOverlay className="rounded-[2.55rem]" label="Guardando fondo" /> : null}
             </div>
           </div>
         </div>
@@ -244,7 +246,7 @@ export const WallpaperAdjuster = ({
             onClick={() => onConfirm(frame)}
             disabled={busy}
           >
-            <Check data-icon="inline-start" />
+            {busy ? <BusySpinner className="size-4" /> : <Check data-icon="inline-start" />}
             {busy ? "Guardando…" : "Usar este recorte"}
           </Button>
         </div>

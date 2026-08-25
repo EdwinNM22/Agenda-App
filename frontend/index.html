@@ -31,10 +31,7 @@
         if (standalone && ios) document.documentElement.classList.add("pwa-ios")
 
         const theme = localStorage.getItem("agenda.theme")
-        const dark =
-          theme === "dark" ||
-          theme === "wallpaper" ||
-          (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+        const dark = theme !== "light"
         if (dark) document.documentElement.classList.add("dark")
         if (theme === "wallpaper") {
           document.documentElement.classList.add("wallpaper")

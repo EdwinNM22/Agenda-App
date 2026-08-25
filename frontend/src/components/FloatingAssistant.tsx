@@ -1,6 +1,7 @@
 import { PhoneOff } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useLocation, useNavigate } from "react-router-dom"
+import { ActivityPill, activityLabel } from "@/components/BusyState"
 import Orb from "@/components/Orb"
 import { Button } from "@/components/ui/button"
 import { useVoiceAssistant } from "@/lib/voice-assistant"
@@ -13,9 +14,10 @@ export const FloatingAssistant = () => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { theme, wallpaperColor } = useTheme()
-  const { status, live, hangUp, voiceLevel } = useVoiceAssistant()
+  const { status, live, hangUp, voiceLevel, activity } = useVoiceAssistant()
   const active = live || status === "connecting"
   const onHome = pathname === "/"
+  const statusCopy = activityLabel(activity)
 
   return (
     <>
@@ -42,11 +44,27 @@ export const FloatingAssistant = () => {
               forceHoverState={live}
               voiceLevel={voiceLevel}
               backgroundColor={
-                theme === "wallpaper" ? (wallpaperColor ?? "#1c1c1e") : theme === "light" ? "#ffffff" : "#1a1a1a"
+                theme === "wallpaper" ? (wallpaperColor ?? "#1c1c1e") : theme === "light" ? "#ffffff" : "#0a0a0a"
               }
             />
             </div>
           </motion.button>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {active && !onHome && statusCopy ? (
+          <motion.div
+            key="assistant-activity"
+            className="pointer-events-none fixed right-[7.5rem] z-40"
+            style={{ bottom: `calc(${orbBottom} + 1.75rem)` }}
+            initial={{ opacity: 0, x: 10, scale: 0.96 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 8, scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 280, damping: 24 }}
+          >
+            <ActivityPill>{statusCopy}</ActivityPill>
+          </motion.div>
         ) : null}
       </AnimatePresence>
 

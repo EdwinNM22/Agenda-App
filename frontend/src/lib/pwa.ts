@@ -14,6 +14,10 @@ export const isStandalone = (): boolean => {
   )
 }
 
+export const openIosAppSettings = () => {
+  window.location.assign("app-settings:")
+}
+
 export const isIos = (): boolean => {
   if (typeof navigator === "undefined") {
     return false

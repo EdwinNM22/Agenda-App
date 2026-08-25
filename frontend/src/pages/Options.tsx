@@ -6,11 +6,13 @@ import {
   KeyRound,
   LogOut,
   Mail,
+  Mic,
   Palette,
   Save,
   UserPlus,
   UserRound,
 } from "lucide-react"
+import { BusyDots, BusyOverlay } from "@/components/BusyState"
 import { FieldLabel } from "@/components/FieldLabel"
 import { ThemePicker } from "@/components/ThemePicker"
 import { VoicePicker } from "@/components/VoicePicker"
@@ -24,10 +26,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { PwaInstall } from "@/components/PwaInstall"
 import { PwaUpdateRow } from "@/components/PwaUpdate"
 import { createAccount, updateProfile, uploadAvatar } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
+import { isIos, isStandalone, openIosAppSettings } from "@/lib/pwa"
 
 const initials = (name: string) =>
   name
@@ -72,7 +74,14 @@ export const OptionsPage = () => {
           hint="Nombre, correo y contraseña"
           onClick={() => setSheet("account")}
         />
-        <PwaInstall />
+        {isIos() && isStandalone() ? (
+          <OptionsRow
+            icon={Mic}
+            title="Micrófono"
+            hint="Ajustes del iPhone → Agenda → Permitir"
+            onClick={() => openIosAppSettings()}
+          />
+        ) : null}
         <PwaUpdateRow />
       </div>
 
@@ -192,6 +201,7 @@ const ProfileForm = () => {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -209,6 +219,8 @@ const ProfileForm = () => {
     }
     setError(null)
     setNotice(null)
+    const previewUrl = URL.createObjectURL(file)
+    setPreview(previewUrl)
     setUploading(true)
     try {
       const data = await uploadAvatar(file)
@@ -217,6 +229,8 @@ const ProfileForm = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo subir la foto")
     } finally {
+      URL.revokeObjectURL(previewUrl)
+      setPreview(null)
       setUploading(false)
     }
   }
@@ -271,20 +285,24 @@ const ProfileForm = () => {
       <div className="flex flex-col items-center gap-3 pt-1">
         <button
           type="button"
-          className="relative rounded-full focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="relative overflow-hidden rounded-full focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           onClick={onPickPhoto}
           disabled={uploading}
           aria-label="Cambiar foto de perfil"
         >
           <Avatar className="size-20 after:rounded-full">
-            {user.avatarThumbUrl || user.avatarUrl ? (
-              <AvatarImage src={user.avatarThumbUrl ?? user.avatarUrl ?? ""} alt={user.name} />
+            {preview || user.avatarThumbUrl || user.avatarUrl ? (
+              <AvatarImage src={preview ?? user.avatarThumbUrl ?? user.avatarUrl ?? ""} alt={user.name} />
             ) : null}
             <AvatarFallback className="text-xl">{initials(user.name)}</AvatarFallback>
           </Avatar>
-          <span className="absolute right-0 bottom-0 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-            <Camera className="size-3.5" />
-          </span>
+          {uploading ? (
+            <BusyOverlay className="rounded-full" label="Subiendo" />
+          ) : (
+            <span className="absolute right-0 bottom-0 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+              <Camera className="size-3.5" />
+            </span>
+          )}
         </button>
         <input
           ref={fileRef}
@@ -294,7 +312,14 @@ const ProfileForm = () => {
           onChange={onPhotoChange}
         />
         <p className="text-sm text-muted-foreground">
-          {uploading ? "Subiendo foto…" : "Toca la foto para cambiarla"}
+          {uploading ? (
+            <>
+              Subiendo foto
+              <BusyDots />
+            </>
+          ) : (
+            "Toca la foto para cambiarla"
+          )}
         </p>
       </div>
 

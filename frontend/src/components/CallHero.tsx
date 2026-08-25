@@ -1,5 +1,6 @@
 import { Mic } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
+import { ActivityPill, activityLabel } from "@/components/BusyState"
 import Orb from "@/components/Orb"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth"
@@ -20,8 +21,9 @@ const initials = (name: string) =>
 export const CallHero = () => {
   const { user } = useAuth()
   const { theme, wallpaperColor } = useTheme()
-  const { status, error, start, voiceLevel, live } = useVoiceAssistant()
+  const { status, error, start, voiceLevel, live, activity } = useVoiceAssistant()
   const active = live || status === "connecting"
+  const statusCopy = activityLabel(activity) ?? (status === "connecting" ? "Conectando" : null)
 
   return (
     <section className="relative overflow-hidden px-5 pt-[calc(var(--k-safe-area-top)+1.5rem)]">
@@ -88,7 +90,31 @@ export const CallHero = () => {
           </AnimatePresence>
         </div>
 
-        {active ? null : <p className="mt-5 text-sm font-medium">{idleCopy}</p>}
+        <div className="mt-5 flex min-h-8 items-center justify-center">
+          <AnimatePresence mode="wait">
+            {statusCopy ? (
+              <motion.div
+                key={statusCopy}
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 6, scale: 0.96 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ActivityPill>{statusCopy}</ActivityPill>
+              </motion.div>
+            ) : active ? null : (
+              <motion.p
+                key="idle"
+                className="text-sm font-medium"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {idleCopy}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </div>
         {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
       </div>
     </section>

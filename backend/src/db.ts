@@ -48,7 +48,7 @@ export type PublicUser = {
 }
 
 export const parseAppearanceTheme = (value: unknown): AppearanceTheme =>
-  value === "dark" || value === "wallpaper" || value === "light" ? value : "light"
+  value === "light" || value === "wallpaper" || value === "dark" ? value : "dark"
 
 export const clampWallpaperValue = (value: unknown, fallback: number, min: number, max: number) => {
   const number = Number(value)
@@ -99,7 +99,9 @@ export const ensureUsersSchema = async () => {
     { schemaName: config.db.database },
   )
   if (themeCols.length === 0) {
-    await pool.query("ALTER TABLE users ADD COLUMN theme VARCHAR(20) NOT NULL DEFAULT 'light'")
+    await pool.query("ALTER TABLE users ADD COLUMN theme VARCHAR(20) NOT NULL DEFAULT 'dark'")
+  } else {
+    await pool.query("ALTER TABLE users MODIFY COLUMN theme VARCHAR(20) NOT NULL DEFAULT 'dark'")
   }
 
   const [wallpaperCols] = await pool.query<RowDataPacket[]>(

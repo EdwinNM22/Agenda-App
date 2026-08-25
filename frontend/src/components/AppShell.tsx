@@ -9,6 +9,7 @@ import { useHideOnScroll } from "@/hooks/useHideOnScroll"
 import { TasksProvider } from "@/lib/tasks-store"
 import { VoiceAssistantProvider } from "@/lib/voice-assistant"
 import { useTheme } from "@/lib/theme"
+import { cn } from "@/lib/utils"
 import { HomePage } from "@/pages/Home"
 import { OptionsPage } from "@/pages/Options"
 import { TasksPage } from "@/pages/Tasks"
@@ -74,7 +75,10 @@ export const AppShell = () => {
           theme="ios"
           dark={theme !== "light"}
           safeAreas
-          className="min-h-svh bg-background text-foreground"
+          className={cn(
+            "min-h-svh text-foreground",
+            theme === "dark" ? "!bg-transparent" : "bg-background",
+          )}
         >
           <div className="relative min-h-svh pb-[calc(var(--k-safe-area-bottom)+6.75rem)]">
             <TabScreen active={pathname === "/"} fade={theme !== "wallpaper"}>

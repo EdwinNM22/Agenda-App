@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { TaskCreatingCard } from "@/components/BusyState"
 import { TaskDetailSheet } from "@/components/TaskDetailSheet"
 import { TaskItem } from "@/components/TaskItem"
 import { useTasks } from "@/hooks/useTasks"
+import { useVoiceAssistant } from "@/lib/voice-assistant"
 import { TASK_STATUS_VISUAL } from "@/lib/taskStatus"
 import {
   datesByTaskStatus,
@@ -33,6 +35,8 @@ const normalizeSearch = (value: string) =>
 export const TasksPage = () => {
   const { pathname } = useLocation()
   const { tasks, loading, error, setError, reload } = useTasks()
+  const { activity } = useVoiceAssistant()
+  const creating = activity === "create_task"
   const [filterDay, setFilterDay] = useState<Date | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -174,9 +178,11 @@ export const TasksPage = () => {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
+      {creating ? <TaskCreatingCard /> : null}
+
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando tareas…</p>
-      ) : tasks.length === 0 ? (
+      ) : tasks.length === 0 && !creating ? (
         <div className="flex flex-col items-center gap-3 rounded-3xl border bg-card px-6 py-16 text-center shadow-sm">
           <div className="flex size-14 items-center justify-center rounded-full bg-muted">
             <CheckSquare className="size-7 text-muted-foreground" />

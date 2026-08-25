@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react"
 import { ArrowRight, CalendarDays } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
+import { TaskCreatingCard } from "@/components/BusyState"
 import { TaskDetailSheet } from "@/components/TaskDetailSheet"
 import { TaskItem } from "@/components/TaskItem"
+import { useVoiceAssistant } from "@/lib/voice-assistant"
 import { groupHomeTasks, type Task } from "@/lib/tasks"
 
 type HomeAgendaProps = {
@@ -15,6 +17,8 @@ export const HomeAgenda = ({ tasks, loading, onChanged }: HomeAgendaProps) => {
   const sections = groupHomeTasks(tasks)
   const hasAny = sections.some((section) => section.tasks.length > 0)
   const { pathname } = useLocation()
+  const { activity } = useVoiceAssistant()
+  const creating = activity === "create_task"
   const [selected, setSelected] = useState<Task | null>(null)
 
   useEffect(() => {
@@ -37,13 +41,15 @@ export const HomeAgenda = ({ tasks, loading, onChanged }: HomeAgendaProps) => {
         </Link>
       </div>
 
+      {creating ? <TaskCreatingCard /> : null}
+
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando agenda…</p>
-      ) : !hasAny ? (
+      ) : !hasAny && !creating ? (
         <p className="text-sm text-muted-foreground">
           No hay tareas para hoy, mañana ni el resto de la semana.
         </p>
-      ) : (
+      ) : hasAny ? (
         <div className="flex flex-col gap-6">
           {sections.map((section) => (
             <div key={section.id} className="flex flex-col gap-2.5">
@@ -68,7 +74,7 @@ export const HomeAgenda = ({ tasks, loading, onChanged }: HomeAgendaProps) => {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       <TaskDetailSheet
         task={selected}

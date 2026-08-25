@@ -10,12 +10,7 @@ type NavigatorWithAudioSession = Navigator & {
   audioSession?: { type: AudioSessionType }
 }
 
-const MIC_GRANTED_KEY = "agenda.micGranted"
-
 let stopPreview: (() => void) | undefined
-let heldStream: MediaStream | null = null
-let releasingHeld = false
-let openingMic: Promise<MediaStream> | null = null
 
 export const registerVoicePreviewStop = (stop: (() => void) | undefined) => {
   stopPreview = stop
@@ -42,7 +37,6 @@ const isMissingCaptureDevice = (err: unknown) => {
   const message = err instanceof Error ? err.message : String(err)
   return (
     name === "NotFoundError" ||
-    name === "OverconstrainedError" ||
     /AVAudioSessionCaptureDevice|Requested device not found|device not found/i.test(message)
   )
 }
@@ -53,59 +47,11 @@ const micProcessing: MediaTrackConstraints = {
   autoGainControl: true,
 }
 
-const rememberMicGranted = () => {
-  try {
-    localStorage.setItem(MIC_GRANTED_KEY, "1")
-  } catch {
-    // modo privado
-  }
-}
-
 const applyBrowserAec = (stream: MediaStream) => {
   stream.getAudioTracks().forEach((track) => {
     void track.applyConstraints(micProcessing).catch(() => undefined)
   })
   return stream
-}
-
-const liveAudioTracks = (stream: MediaStream | null) =>
-  stream?.getAudioTracks().filter((track) => track.readyState === "live") ?? []
-
-const requestMic = () =>
-  navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-
-const bindHeldStream = (stream: MediaStream) => {
-  heldStream = stream
-  stream.getAudioTracks().forEach((track) => {
-    track.addEventListener(
-      "ended",
-      () => {
-        if (!releasingHeld && liveAudioTracks(heldStream).length === 0) {
-          heldStream = null
-        }
-      },
-      { once: true },
-    )
-  })
-  rememberMicGranted()
-  setAudioSessionType("play-and-record")
-  return stream
-}
-
-const queryMicPermission = async (): Promise<"granted" | "denied" | "prompt" | "unknown"> => {
-  try {
-    const status = await navigator.permissions.query({ name: "microphone" as PermissionName })
-    if (status.state === "granted") {
-      rememberMicGranted()
-    }
-    return status.state
-  } catch {
-    try {
-      return localStorage.getItem(MIC_GRANTED_KEY) === "1" ? "granted" : "unknown"
-    } catch {
-      return "unknown"
-    }
-  }
 }
 
 export const captureMicrophone = async (): Promise<MediaStream> => {
@@ -117,54 +63,26 @@ export const captureMicrophone = async (): Promise<MediaStream> => {
 
   stopVoicePreviews()
 
-  const live = liveAudioTracks(heldStream)
-  if (heldStream && live.length > 0) {
-    live.forEach((track) => {
-      track.enabled = true
-    })
+  const open = () => navigator.mediaDevices.getUserMedia({ audio: true })
+
+  try {
+    const stream = applyBrowserAec(await open())
     setAudioSessionType("play-and-record")
-    return heldStream
-  }
-  heldStream = null
-
-  if (openingMic) {
-    return openingMic
-  }
-
-  openingMic = (async () => {
-    // No tocar audioSession antes del prompt: en iOS eso dispara otro aviso
-    // (a veces de cámara) y el sistema no llega a guardar "Permitir".
-    await queryMicPermission()
-
-    const open = async () => applyBrowserAec(await requestMic())
-
-    try {
-      return bindHeldStream(await open())
-    } catch (err) {
-      if (!isMissingCaptureDevice(err)) {
-        throw err
-      }
-      setAudioSessionType("play-and-record")
-      return bindHeldStream(await open())
+    return stream
+  } catch (err) {
+    if (!isMissingCaptureDevice(err)) {
+      throw err
     }
-  })().finally(() => {
-    openingMic = null
-  })
-
-  return openingMic
+    setAudioSessionType("play-and-record")
+    return applyBrowserAec(await open())
+  }
 }
 
-export const releaseMicrophone = () => {
-  releasingHeld = true
-  heldStream?.getTracks().forEach((track) => {
-    track.stop()
-  })
-  heldStream = null
-  releasingHeld = false
+export const stopMicrophone = (stream: MediaStream | null) => {
+  stream?.getTracks().forEach((track) => track.stop())
 }
 
 export const releaseCallAudioSession = () => {
-  // No volver a "playback": iOS pierde el dispositivo de captura y vuelve a pedir permiso.
   setAudioSessionType("auto")
 }
 
@@ -175,13 +93,7 @@ export const describeMicError = (err: unknown) => {
   const name = err instanceof DOMException ? err.name : ""
   const message = err instanceof Error ? err.message : String(err)
   if (name === "NotAllowedError" || /permission|denied|not allowed/i.test(message)) {
-    const pwa =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
-    if (pwa) {
-      return "El micrófono está bloqueado. En Ajustes → Agenda → Micrófono, elige Permitir."
-    }
-    return "El micrófono está bloqueado. En Ajustes del navegador, permite el micrófono para este sitio."
+    return "El micrófono está bloqueado."
   }
   if (isMissingCaptureDevice(err)) {
     return "No se pudo abrir el micrófono. Cierra otras apps de audio, recarga y toca otra vez."

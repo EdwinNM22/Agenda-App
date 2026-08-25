@@ -27,7 +27,7 @@ try {
       password_hash VARCHAR(255) NOT NULL,
       name VARCHAR(120) NOT NULL,
       avatar_url VARCHAR(512) NULL,
-      theme VARCHAR(20) NOT NULL DEFAULT 'light',
+      theme VARCHAR(20) NOT NULL DEFAULT 'dark',
       wallpaper_url VARCHAR(512) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )

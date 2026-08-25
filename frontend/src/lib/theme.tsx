@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react"
 import { createPortal } from "react-dom"
+import { DarkAtmosphere } from "@/components/DarkAtmosphere"
 import { updateProfile, uploadWallpaper } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 
@@ -34,8 +35,7 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 
 const defaultFrame = (): WallpaperFrame => ({ x: 50, y: 50, zoom: 1 })
 
-const systemTheme = (): Theme =>
-  window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+const DARK_CHROME = "#0a0a0a"
 
 const applyThemeColor = (color: string) => {
   let meta = document.querySelector('meta[name="theme-color"]:not([media])')
@@ -62,12 +62,12 @@ const applyChrome = (theme: Theme, wallpaper: string | null, color: string | nul
   }
   root.style.removeProperty("--wallpaper-color")
   localStorage.removeItem("agenda.wallpaperColor")
-  applyThemeColor(useDark ? "#0a0a0a" : "#ffffff")
+  applyThemeColor(useDark ? DARK_CHROME : "#ffffff")
 }
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const { user, loading, setUser } = useAuth()
-  const [theme, setThemeState] = useState<Theme>("light")
+  const [theme, setThemeState] = useState<Theme>("dark")
   const [wallpaper, setWallpaperState] = useState<string | null>(null)
   const [wallpaperColor, setWallpaperColor] = useState<string | null>(null)
   const [frame, setFrameState] = useState<WallpaperFrame>(defaultFrame)
@@ -77,12 +77,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       return
     }
     if (!user) {
-      const fallback = systemTheme()
-      setThemeState(fallback)
+      setThemeState("dark")
       setWallpaperState(null)
       setWallpaperColor(null)
       setFrameState(defaultFrame())
-      applyChrome(fallback, null)
+      applyChrome("dark", null)
       return
     }
     const nextTheme =
@@ -162,6 +161,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <ThemeContext.Provider value={value}>
+      {theme === "dark" ? <DarkAtmosphere /> : null}
       {typeof document !== "undefined" && theme === "wallpaper" && wallpaper
         ? createPortal(
             <div

@@ -2,7 +2,7 @@ import { type FormEvent, useEffect, useMemo, useState } from "react"
 import { AlertCircle, Eye, EyeOff, KeyRound, Loader2, Mail } from "lucide-react"
 import { motion } from "motion/react"
 import { Navigate } from "react-router-dom"
-import { AuthSplash, LoginAtmosphere } from "@/components/AuthSplash"
+import { AuthSplash } from "@/components/AuthSplash"
 import { BrandOrb } from "@/components/BrandOrb"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -96,9 +96,7 @@ export const LoginPage = () => {
   }
 
   return (
-    <main className="relative flex min-h-svh flex-col overflow-hidden bg-background">
-      <LoginAtmosphere />
-
+    <main className="relative flex min-h-svh flex-col overflow-hidden bg-transparent">
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 pt-[calc(var(--k-safe-area-top)+2.5rem)] pb-[calc(var(--k-safe-area-bottom)+2.5rem)]">
         <motion.div
           className="flex flex-col items-center text-center"

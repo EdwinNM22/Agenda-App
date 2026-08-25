@@ -294,8 +294,8 @@ const runDeleteTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
 
 type RealtimeToolHandlers = {
   onHangUp?: () => void
-  onToolStart?: () => void
-  onToolEnd?: () => void
+  onToolStart?: (name: string) => void
+  onToolEnd?: (name: string) => void
   onAwaitingResponse?: () => void
   shouldEndCall?: () => boolean
 }
@@ -344,7 +344,7 @@ export const handleRealtimeToolEvent = async (
       continue
     }
     seenCallIds.add(call.callId)
-    handlers?.onToolStart?.()
+    handlers?.onToolStart?.(call.name)
     try {
       if (call.name === "create_task") {
         await runCreateTask(channel, call.callId, call.args)
@@ -375,7 +375,7 @@ export const handleRealtimeToolEvent = async (
         }
       }
     } finally {
-      handlers?.onToolEnd?.()
+      handlers?.onToolEnd?.(call.name)
     }
   }
 }

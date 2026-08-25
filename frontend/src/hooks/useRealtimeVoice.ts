@@ -3,7 +3,7 @@ import {
   captureMicrophone,
   describeMicError,
   releaseCallAudioSession,
-  releaseMicrophone,
+  stopMicrophone,
   setAudioSessionType,
 } from "@/audio/audioSession"
 import { api } from "@/lib/api"
@@ -12,6 +12,23 @@ import { isHangupCommand } from "@/lib/voiceCommands"
 import type { RealtimeVoice } from "@/lib/voices"
 
 export type VoiceStatus = "idle" | "connecting" | "live" | "error"
+
+export type ToolActivity = "create_task" | "update_task" | "delete_task" | null
+
+const TOOL_ACTIVITY = new Set(["create_task", "update_task", "delete_task"])
+
+const pickActivity = (names: string[]): ToolActivity => {
+  if (names.includes("create_task")) {
+    return "create_task"
+  }
+  if (names.includes("delete_task")) {
+    return "delete_task"
+  }
+  if (names.includes("update_task")) {
+    return "update_task"
+  }
+  return null
+}
 
 let assistantHeardBuffer = ""
 let assistantSaidBuffer = ""
@@ -135,6 +152,13 @@ export const useRealtimeVoice = () => {
   const isiQuietTimerRef = useRef(0)
   const [busy, setBusy] = useState(false)
   const [hearingUser, setHearingUser] = useState(false)
+  const toolsRef = useRef<string[]>([])
+  const [activity, setActivity] = useState<ToolActivity>(null)
+
+  const syncActivity = useCallback(() => {
+    const next = pickActivity(toolsRef.current)
+    setActivity((prev) => (prev === next ? prev : next))
+  }, [])
 
   const syncBusy = useCallback(() => {
     const next =
@@ -158,9 +182,11 @@ export const useRealtimeVoice = () => {
     greetingPlayingRef.current = false
     isiSpeakingRef.current = false
     lastUserTranscriptRef.current = ""
+    toolsRef.current = []
     window.clearTimeout(isiQuietTimerRef.current)
     setHearingUser(false)
-    releaseMicrophone()
+    setActivity(null)
+    stopMicrophone(streamRef.current)
     streamRef.current = null
     if (audioRef.current) {
       audioRef.current.pause()
@@ -407,12 +433,26 @@ export const useRealtimeVoice = () => {
             seenCallIdsRef.current,
             {
               onHangUp: hangUp,
-              onToolStart: () => {
+              onToolStart: (name) => {
                 toolsInFlightRef.current += 1
+                if (TOOL_ACTIVITY.has(name)) {
+                  toolsRef.current = [...toolsRef.current, name]
+                  syncActivity()
+                }
                 syncBusy()
               },
-              onToolEnd: () => {
+              onToolEnd: (name) => {
                 toolsInFlightRef.current = Math.max(0, toolsInFlightRef.current - 1)
+                if (TOOL_ACTIVITY.has(name)) {
+                  const index = toolsRef.current.lastIndexOf(name)
+                  if (index >= 0) {
+                    toolsRef.current = [
+                      ...toolsRef.current.slice(0, index),
+                      ...toolsRef.current.slice(index + 1),
+                    ]
+                  }
+                  syncActivity()
+                }
                 syncBusy()
               },
               onAwaitingResponse: () => {
@@ -469,7 +509,7 @@ export const useRealtimeVoice = () => {
       setStatus("error")
       setError(describeMicError(err))
     }
-  }, [hangUp, releaseCall, syncBusy])
+  }, [hangUp, releaseCall, syncActivity, syncBusy])
 
   useEffect(() => {
     return () => {
@@ -477,5 +517,5 @@ export const useRealtimeVoice = () => {
     }
   }, [hangUp])
 
-  return { status, error, start, hangUp, audioRef, localStream, remoteStream, busy, hearingUser }
+  return { status, error, start, hangUp, audioRef, localStream, remoteStream, busy, hearingUser, activity }
 }
