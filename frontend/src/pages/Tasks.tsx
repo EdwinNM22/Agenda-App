@@ -77,7 +77,7 @@ export const TasksPage = () => {
   }, [visibleTasks])
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col gap-6 px-5 pt-8">
+    <main className="mx-auto flex w-full max-w-lg flex-col gap-6 px-5 pt-[calc(var(--k-safe-area-top)+2rem)]">
       <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight">
         <ListTodo className="size-7" />
         Agenda

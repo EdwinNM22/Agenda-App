@@ -109,7 +109,7 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
 
   return (
     <VoiceAssistantContext.Provider value={value}>
-      <audio ref={audioRef} autoPlay={false} playsInline />
+      <audio ref={audioRef} autoPlay={false} playsInline preload="auto" />
       {children}
     </VoiceAssistantContext.Provider>
   )

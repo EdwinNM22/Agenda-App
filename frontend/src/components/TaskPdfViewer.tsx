@@ -124,7 +124,7 @@ export const TaskPdfViewer = ({ file, onClose }: TaskPdfViewerProps) => {
         showCloseButton={false}
         className="top-0 left-0 z-[90] flex h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 transform-none flex-col gap-0 rounded-none bg-zinc-950 p-0 text-white data-open:zoom-in-100 data-closed:zoom-out-100 sm:top-0 sm:left-0 sm:h-dvh sm:max-w-none sm:translate-x-0 sm:translate-y-0"
       >
-        <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex items-center gap-2 px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2">
           <DialogTitle className="min-w-0 flex-1 truncate text-sm font-medium text-white">
             {file?.name ?? "PDF"}
           </DialogTitle>
@@ -149,7 +149,7 @@ export const TaskPdfViewer = ({ file, onClose }: TaskPdfViewerProps) => {
           )}
         </div>
         {pageCount > 0 ? (
-          <div className="flex items-center justify-center gap-3 px-3 py-3">
+          <div className="flex items-center justify-center gap-3 px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
             <Button
               type="button"
               variant="ghost"

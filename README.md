@@ -42,3 +42,23 @@ Usuario de prueba:
 El login guarda un JWT y abre un dashboard con voz (GPT Realtime) y un botón para cerrar sesión.
 
 Pon tu clave en `backend/.env` (`OPENAI_API_KEY`). El navegador nunca la ve: el backend crea la sesión y el micrófono va por WebRTC. Desde otro dispositivo usa `npm run dev:https` para que el micrófono funcione.
+
+## PWA (iOS y Android)
+
+La app se puede instalar en la pantalla de inicio. Hace falta HTTPS (producción o `npm run dev:https`).
+
+### Instalar
+
+- **Android / Chrome:** menú del navegador → Instalar aplicación, o Ajustes → Instalar app.
+- **iPhone / iPad:** Safari → Compartir → Añadir a pantalla de inicio.
+
+Tras el build, `index.html` no debe cachearse; el service worker (`sw.js`) tampoco.
+
+### Iconos
+
+Cuatro JPG, mismo nombre y tamaño:
+
+- `frontend/public/apple-touch-icon.jpg` — 180×180 (iOS)
+- `frontend/public/pwa/icon-192x192.jpg` — 192×192
+- `frontend/public/pwa/icon-512x512.jpg` — 512×512
+- `frontend/public/pwa/maskable-512x512.jpg` — 512×512 (logo centrado, ~10% de margen)

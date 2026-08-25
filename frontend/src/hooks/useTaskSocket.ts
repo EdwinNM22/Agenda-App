@@ -58,10 +58,23 @@ export const useTaskSocket = (onEvent: (event: TaskSocketEvent) => void) => {
 
     connect()
 
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") {
+        return
+      }
+      if (socket && socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING) {
+        socket.close()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("online", onVisible)
+
     return () => {
       closed = true
       window.clearTimeout(reconnectTimer)
       window.clearInterval(pingTimer)
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("online", onVisible)
       socket?.close()
     }
   }, [onEvent])

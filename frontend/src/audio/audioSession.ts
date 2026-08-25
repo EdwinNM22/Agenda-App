@@ -105,6 +105,12 @@ export const describeMicError = (err: unknown) => {
   const name = err instanceof DOMException ? err.name : ""
   const message = err instanceof Error ? err.message : String(err)
   if (name === "NotAllowedError" || /permission|denied|not allowed/i.test(message)) {
+    const pwa =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+    if (pwa) {
+      return "El micrófono está bloqueado. En Ajustes → Agenda → Micrófono, permite el acceso y vuelve a tocar."
+    }
     return "Safari bloqueó el micrófono. En Ajustes → Safari → Micrófono, permite este sitio y recarga."
   }
   if (isMissingCaptureDevice(err)) {

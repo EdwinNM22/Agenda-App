@@ -99,7 +99,7 @@ export const LoginPage = () => {
     <main className="relative flex min-h-svh flex-col overflow-hidden bg-background">
       <LoginAtmosphere />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-10">
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 pt-[calc(var(--k-safe-area-top)+2.5rem)] pb-[calc(var(--k-safe-area-bottom)+2.5rem)]">
         <motion.div
           className="flex flex-col items-center text-center"
           initial={{ opacity: 0, y: 16 }}

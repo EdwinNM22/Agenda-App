@@ -32,7 +32,11 @@ export const TaskImageLightbox = ({ images, index, onClose }: TaskImageLightboxP
         buttonNext: images.length < 2 ? () => null : undefined,
       }}
       styles={{
-        container: { backgroundColor: "rgba(0, 0, 0, 0.94)" },
+        container: {
+          backgroundColor: "rgba(0, 0, 0, 0.94)",
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        },
       }}
     />
   )

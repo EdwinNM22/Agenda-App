@@ -24,6 +24,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { PwaInstall } from "@/components/PwaInstall"
 import { createAccount, updateProfile, uploadAvatar } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 
@@ -42,7 +43,7 @@ export const OptionsPage = () => {
   const [sheet, setSheet] = useState<OptionsSheet>(null)
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col gap-6 px-5 pt-8">
+    <main className="mx-auto flex w-full max-w-lg flex-col gap-6 px-5 pt-[calc(var(--k-safe-area-top)+2rem)]">
       <h1 className="text-3xl font-semibold tracking-tight">Ajustes</h1>
 
       <div className="grid gap-2">
@@ -70,6 +71,7 @@ export const OptionsPage = () => {
           hint="Nombre, correo y contraseña"
           onClick={() => setSheet("account")}
         />
+        <PwaInstall />
       </div>
 
       <Button type="button" variant="destructive" className="glass-danger h-11 border" onClick={logout}>

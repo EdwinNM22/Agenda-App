@@ -38,7 +38,7 @@ const systemTheme = (): Theme =>
   window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
 
 const applyThemeColor = (color: string) => {
-  let meta = document.querySelector('meta[name="theme-color"]')
+  let meta = document.querySelector('meta[name="theme-color"]:not([media])')
   if (!meta) {
     meta = document.createElement("meta")
     meta.setAttribute("name", "theme-color")
@@ -166,7 +166,6 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         ? createPortal(
             <div
               className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
-              style={{ width: "100vw", height: "100dvh" }}
               aria-hidden
             >
               <img

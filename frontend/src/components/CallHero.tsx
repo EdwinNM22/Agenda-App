@@ -24,7 +24,7 @@ export const CallHero = () => {
   const active = live || status === "connecting"
 
   return (
-    <section className="relative overflow-hidden px-5 pt-6">
+    <section className="relative overflow-hidden px-5 pt-[calc(var(--k-safe-area-top)+1.5rem)]">
       <div className="pointer-events-none absolute inset-x-8 top-10 h-40 rounded-full bg-foreground/6 blur-3xl" />
 
       <div className="relative flex items-center gap-3">

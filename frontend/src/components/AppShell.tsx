@@ -94,7 +94,7 @@ export const AppShell = () => {
           <FloatingAssistant />
 
           <motion.div
-            className="fixed inset-x-0 bottom-0 z-50"
+            className="agenda-tabbar-wrap fixed inset-x-0 bottom-0 z-50"
             animate={{ y: hidden ? "110%" : 0 }}
             transition={{ type: "spring", stiffness: 320, damping: 34 }}
           >
