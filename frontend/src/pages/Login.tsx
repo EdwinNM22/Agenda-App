@@ -4,7 +4,6 @@ import { motion } from "motion/react"
 import { Navigate } from "react-router-dom"
 import { AuthSplash, LoginAtmosphere } from "@/components/AuthSplash"
 import { BrandOrb } from "@/components/BrandOrb"
-import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth"
@@ -100,10 +99,6 @@ export const LoginPage = () => {
     <main className="relative flex min-h-svh flex-col overflow-hidden bg-background">
       <LoginAtmosphere />
 
-      <div className="absolute top-4 right-4 z-10 pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)]">
-        <ThemeToggle />
-      </div>
-
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-10">
         <motion.div
           className="flex flex-col items-center text-center"
@@ -112,8 +107,8 @@ export const LoginPage = () => {
           transition={{ type: "spring", stiffness: 160, damping: 20 }}
         >
           <BrandOrb size="lg" />
-          <p className="mt-6 text-sm font-medium text-muted-foreground">{hello}</p>
-          <h1 className="mt-1 text-4xl font-semibold tracking-tight">Bienvenido a EC Agenda</h1>
+          <p className="mt-6 text-sm font-medium text-muted-foreground">{hello} bienvenido a</p>
+          <h1 className="mt-1 text-4xl font-semibold tracking-tight">EC Agenda</h1>
           <p className="mt-2 max-w-xs text-sm text-muted-foreground">
             Tu día y tu asistente en un solo lugar.
           </p>

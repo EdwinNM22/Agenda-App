@@ -129,7 +129,7 @@ export const TaskDetailSheet = ({ task, open, onOpenChange, onChanged }: TaskDet
         {task ? (
           <form onSubmit={onSave}>
             <SheetHeader className="border-b">
-              <div className="flex items-start justify-between gap-3 pr-8">
+              <div className="flex items-start justify-between gap-3">
                 <SheetTitle className="flex min-w-0 items-center gap-2">
                   <Pencil className="size-4" />
                   {editing ? "Editar tarea" : "Detalle"}
