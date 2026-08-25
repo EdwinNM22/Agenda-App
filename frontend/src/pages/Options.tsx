@@ -6,7 +6,6 @@ import {
   KeyRound,
   LogOut,
   Mail,
-  Mic,
   Palette,
   Save,
   UserPlus,
@@ -29,7 +28,6 @@ import {
 import { PwaUpdateRow } from "@/components/PwaUpdate"
 import { createAccount, updateProfile, uploadAvatar } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
-import { isIos, isStandalone, openIosAppSettings } from "@/lib/pwa"
 
 const initials = (name: string) =>
   name
@@ -74,14 +72,6 @@ export const OptionsPage = () => {
           hint="Nombre, correo y contraseña"
           onClick={() => setSheet("account")}
         />
-        {isIos() && isStandalone() ? (
-          <OptionsRow
-            icon={Mic}
-            title="Micrófono"
-            hint="Ajustes del iPhone → Agenda → Permitir"
-            onClick={() => openIosAppSettings()}
-          />
-        ) : null}
         <PwaUpdateRow />
       </div>
 
