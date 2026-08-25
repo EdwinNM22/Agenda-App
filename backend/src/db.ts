@@ -1,7 +1,7 @@
 import type { RowDataPacket } from "mysql2"
 import mysql from "mysql2/promise"
 import { config } from "./config.js"
-import { avatarThumbPublicPath } from "./uploads.js"
+import { avatarThumbPublicPath, publicAssetPath } from "./uploads.js"
 
 export const pool = mysql.createPool({
   host: config.db.socketPath ? undefined : config.db.host,
@@ -70,10 +70,10 @@ export const toPublicUser = (user: UserRow): PublicUser => ({
   id: user.id,
   email: user.email,
   name: user.name,
-  avatarUrl: user.avatar_url ?? null,
-  avatarThumbUrl: avatarThumbPublicPath(user.avatar_url ?? null),
+  avatarUrl: publicAssetPath(user.avatar_url),
+  avatarThumbUrl: avatarThumbPublicPath(publicAssetPath(user.avatar_url)),
   theme: parseAppearanceTheme(user.theme),
-  wallpaperUrl: user.wallpaper_url ?? null,
+  wallpaperUrl: publicAssetPath(user.wallpaper_url),
   wallpaperX: clampWallpaperValue(user.wallpaper_x, 50, 0, 100),
   wallpaperY: clampWallpaperValue(user.wallpaper_y, 50, 0, 100),
   wallpaperZoom: clampWallpaperValue(user.wallpaper_zoom, 1, 1, 2.4),
@@ -232,8 +232,8 @@ export const toPublicAttachment = (row: AttachmentRow): PublicAttachment => ({
   id: row.id,
   taskId: row.task_id,
   name: row.original_name,
-  url: `/api/uploads/attachments/${row.filename}`,
-  thumbUrl: row.thumb_filename ? `/api/uploads/attachments/${row.thumb_filename}` : null,
+  url: `/uploads/attachments/${row.filename}`,
+  thumbUrl: row.thumb_filename ? `/uploads/attachments/${row.thumb_filename}` : null,
   mimeType: row.mime_type,
   size: row.size,
 })

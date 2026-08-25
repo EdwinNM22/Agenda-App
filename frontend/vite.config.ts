@@ -49,11 +49,12 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
       proxy: {
-        "/api": {
-          target: apiTarget,
-          changeOrigin: true,
-          ws: true,
-        },
+        "/health": { target: apiTarget, changeOrigin: true },
+        "/auth": { target: apiTarget, changeOrigin: true },
+        "/realtime": { target: apiTarget, changeOrigin: true },
+        "/tasks": { target: apiTarget, changeOrigin: true },
+        "/uploads": { target: apiTarget, changeOrigin: true },
+        "/ws": { target: apiTarget, changeOrigin: true, ws: true },
       },
     },
   }

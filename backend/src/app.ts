@@ -83,7 +83,7 @@ export const buildApp = async () => {
   })
   await app.register(fastifyStatic, {
     root: avatarsDir,
-    prefix: "/api/uploads/avatars/",
+    prefix: "/uploads/avatars/",
     decorateReply: false,
     wildcard: true,
     setHeaders: (res, filePath) => {
@@ -94,7 +94,7 @@ export const buildApp = async () => {
   })
   await app.register(fastifyStatic, {
     root: wallpapersDir,
-    prefix: "/api/uploads/wallpapers/",
+    prefix: "/uploads/wallpapers/",
     decorateReply: false,
     wildcard: true,
     setHeaders: (res, filePath) => {
@@ -105,7 +105,7 @@ export const buildApp = async () => {
   })
   await app.register(fastifyStatic, {
     root: attachmentsDir,
-    prefix: "/api/uploads/attachments/",
+    prefix: "/uploads/attachments/",
     decorateReply: false,
     wildcard: true,
     setHeaders: (res, filePath) => {
@@ -123,16 +123,11 @@ export const buildApp = async () => {
     }
   })
 
-  await app.register(
-    async (api) => {
-      await registerHealthRoutes(api)
-      await registerAuthRoutes(api)
-      await registerRealtimeRoutes(api)
-      await registerTaskRoutes(api)
-      await registerTaskSocketRoutes(api)
-    },
-    { prefix: "/api" },
-  )
+  await registerHealthRoutes(app)
+  await registerAuthRoutes(app)
+  await registerRealtimeRoutes(app)
+  await registerTaskRoutes(app)
+  await registerTaskSocketRoutes(app)
 
   return app
 }

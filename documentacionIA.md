@@ -16,7 +16,7 @@ OpenAI Realtime admite dos formas de conectar el navegador:
 Se eligió la opción 2 porque:
 
 - `OPENAI_API_KEY` solo vive en `backend/.env`.
-- El frontend sigue usando el mismo proxy de Vite (`/api` → Fastify).
+- El frontend sigue usando el mismo proxy de Vite (`/health`, `/auth`, `/realtime` → Fastify).
 - La sesión exige JWT, igual que el resto de rutas protegidas.
 
 El audio en sí no pasa por Fastify: una vez negociado el SDP, el micrófono y la voz del modelo van por **WebRTC** entre el navegador y OpenAI.
@@ -26,7 +26,7 @@ Navegador                     Fastify                      OpenAI
    |                             |                             |
    |  getUserMedia (mic)         |                             |
    |  RTCPeerConnection + SDP     |                             |
-   |-- POST /api/realtime/session ->                             |
+   |-- POST /realtime/session ->                                 |
    |  { sdp, voice } + JWT       |                             |
    |                             |-- POST /v1/realtime/calls -->
    |                             |   Bearer OPENAI_API_KEY     |
@@ -56,9 +56,9 @@ El asistente siempre responde en **español**, aunque el usuario hable en inglé
 
 ### 2. Endpoint protegido de sesión
 
-Archivo: `backend/src/routes/realtime.ts`, registrado en `backend/src/app.ts` bajo el prefijo `/api`.
+Archivo: `backend/src/routes/realtime.ts`, registrado en `backend/src/app.ts`.
 
-- Ruta: `POST /api/realtime/session`
+- Ruta: `POST /realtime/session`
 - Auth: `onRequest: [app.authenticate]` (mismo JWT del login)
 - Body: `{ sdp: string, voice?: string }`
 - Si no hay API key → 503
@@ -119,7 +119,7 @@ Al pulsar **Hablar**:
 6. Crea el data channel `oai-events` (eventos de Realtime: tools, `response.created` / `response.done`).
 7. `createOffer` → `setLocalDescription`.
 8. Espera a que ICE termine (máximo 2 s) para mandar candidatos más completos, útil en red local / móvil.
-9. `POST /api/realtime/session` con el SDP y la voz elegida.
+9. `POST /realtime/session` con el SDP y la voz elegida.
 10. `setRemoteDescription` con la respuesta.
 11. Estado `live`.
 
@@ -158,7 +158,7 @@ El micrófono en el navegador exige **contexto seguro**:
 
 Por eso ya existía `npm run dev:https` (certificado local con `@vitejs/plugin-basic-ssl`, Vite en `host: true`). Desde el móvil hay que abrir `https://IP_DE_LA_PC:5173` y aceptar el aviso del certificado.
 
-El backend sigue en HTTP; Vite proxya `/api`. El audio WebRTC va directo a OpenAI.
+El backend sigue en HTTP; Vite proxya las rutas de la API. El audio WebRTC va directo a OpenAI.
 
 ### 7. Eco del altavoz y ruido de fondo
 

@@ -15,7 +15,16 @@ export const ensureUploadDirs = async () => {
   await mkdir(attachmentsDir, { recursive: true })
 }
 
-export const avatarPublicPath = (relativePath: string) => `/api/uploads/avatars/${relativePath}`
+export const withoutApiPrefix = (url: string): string => url.replace(/^\/api(?=\/)/, "")
+
+export const publicAssetPath = (url: string | null | undefined): string | null => {
+  if (!url) {
+    return null
+  }
+  return withoutApiPrefix(url)
+}
+
+export const avatarPublicPath = (relativePath: string) => `/uploads/avatars/${relativePath}`
 
 export const avatarThumbPublicPath = (avatarUrl: string | null): string | null => {
   if (!avatarUrl) {
@@ -33,7 +42,7 @@ export const userAvatarFolder = (userId: number, assetId: string) =>
 export const userAvatarDiskDir = (userId: number, assetId: string) =>
   path.join(avatarsDir, "users", String(userId), assetId)
 
-export const wallpaperPublicPath = (relativePath: string) => `/api/uploads/wallpapers/${relativePath}`
+export const wallpaperPublicPath = (relativePath: string) => `/uploads/wallpapers/${relativePath}`
 
 export const userWallpaperFolder = (userId: number, assetId: string) =>
   path.posix.join("users", String(userId), assetId)
@@ -90,11 +99,12 @@ export const avatarFilenameFromUrl = (avatarUrl: string | null): string | null =
   if (!avatarUrl) {
     return null
   }
-  const prefix = "/api/uploads/avatars/"
-  if (!avatarUrl.startsWith(prefix)) {
+  const prefix = "/uploads/avatars/"
+  const normalized = withoutApiPrefix(avatarUrl)
+  if (!normalized.startsWith(prefix)) {
     return null
   }
-  const filename = avatarUrl.slice(prefix.length)
+  const filename = normalized.slice(prefix.length)
   if (!filename || filename.includes("..") || filename.includes("\\")) {
     return null
   }
@@ -117,11 +127,12 @@ export const wallpaperFilenameFromUrl = (wallpaperUrl: string | null): string | 
   if (!wallpaperUrl) {
     return null
   }
-  const prefix = "/api/uploads/wallpapers/"
-  if (!wallpaperUrl.startsWith(prefix)) {
+  const prefix = "/uploads/wallpapers/"
+  const normalized = withoutApiPrefix(wallpaperUrl)
+  if (!normalized.startsWith(prefix)) {
     return null
   }
-  const filename = wallpaperUrl.slice(prefix.length)
+  const filename = normalized.slice(prefix.length)
   if (!filename || filename.includes("..") || filename.includes("\\")) {
     return null
   }

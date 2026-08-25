@@ -30,7 +30,7 @@ Para APIs del navegador que exigen HTTPS:
 npm run dev:https
 ```
 
-Luego entra a `https://TU_IP:5173`. El certificado es local; el navegador pedirá aceptar la advertencia. El backend sigue en HTTP; Vite lo proxya por `/api`.
+Luego entra a `https://TU_IP:5173`. El certificado es local; el navegador pedirá aceptar la advertencia. El backend sigue en HTTP; Vite proxya `/health`, `/auth`, `/tasks`, `/ws` y `/uploads`.
 
 Si no carga desde el otro dispositivo, abre el puerto 5173 en el firewall (`sudo ufw allow 5173` o el equivalente en firewalld).
 
