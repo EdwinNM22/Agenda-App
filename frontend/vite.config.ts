@@ -119,6 +119,7 @@ export default defineConfig(({ mode }) => {
         devOptions: {
           enabled: httpsEnabled,
           type: "module",
+          navigateFallback: "index.html",
         },
       }),
       ...(httpsEnabled

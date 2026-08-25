@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
-import { Bell, Check, ChevronRight, Mic, ShieldCheck } from "lucide-react"
+import { Bell, Check, ChevronRight, ShieldCheck } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   Sheet,
   SheetContent,
@@ -10,27 +11,75 @@ import {
 import { useAuth } from "@/lib/auth"
 import {
   listAppPermissions,
-  promptAppPermissions,
   requestAppPermission,
   type AppPermission,
   type AppPermissionId,
 } from "@/lib/permissions"
+import { currentPushStatus, describePushStatus, enablePush, syncPushSubscription, type PushStatus } from "@/lib/push"
 import { cn } from "@/lib/utils"
 
 export const PermissionsPrompt = () => {
   const { user } = useAuth()
+  const [status, setStatus] = useState<PushStatus | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [hidden, setHidden] = useState(false)
+
+  const refresh = async () => {
+    const next = await currentPushStatus()
+    setStatus(next)
+    if (next === "on") {
+      await syncPushSubscription().catch(() => undefined)
+    }
+  }
 
   useEffect(() => {
     if (!user) {
       return
     }
     const timer = window.setTimeout(() => {
-      void promptAppPermissions(false)
-    }, 400)
+      void refresh()
+    }, 500)
     return () => window.clearTimeout(timer)
   }, [user?.id])
 
-  return null
+  if (!user || hidden || !status || status === "on") {
+    return null
+  }
+
+  const canAsk = status === "off"
+
+  const onAllow = async () => {
+    if (!canAsk) {
+      setHidden(true)
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await enablePush()
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo activar el aviso")
+      await refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-x-4 bottom-[calc(var(--k-safe-area-bottom)+5.75rem)] z-40 mx-auto max-w-lg">
+      <div className="rounded-3xl border bg-card px-4 py-3.5 shadow-lg">
+        <p className="font-medium">Avisos de tareas</p>
+        <p className="mt-1 text-sm text-muted-foreground">{error ?? describePushStatus(status)}</p>
+        <div className="mt-3 flex gap-2">
+          <Button type="button" className="h-10 flex-1" onClick={() => void onAllow()} disabled={busy}>
+            {busy ? "Activando…" : canAsk ? "Permitir" : "Entendido"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export const PermissionsRow = () => {
@@ -49,7 +98,7 @@ export const PermissionsRow = () => {
   const grantedCount = items.filter((item) => item.granted).length
   const hint =
     items.length === 0
-      ? "Micrófono y avisos"
+      ? "Avisos de tareas"
       : grantedCount === items.length
         ? "Todo autorizado"
         : `${grantedCount} de ${items.length} autorizados`
@@ -98,7 +147,7 @@ export const PermissionsRow = () => {
               Permisos
             </SheetTitle>
             <SheetDescription>
-              Lo que la app puede usar. Si cancelaste alguno, actívalo aquí.
+              Avisos de las tareas. Si cancelaste el permiso, actívalo aquí.
             </SheetDescription>
           </SheetHeader>
           <div className="grid gap-2 px-4 pb-2">
@@ -128,7 +177,6 @@ const PermissionItem = ({
   busy: boolean
   onAsk: () => void
 }) => {
-  const Icon = item.id === "notifications" ? Bell : Mic
   const canAsk = !item.granted && item.state !== "unsupported" && item.state !== "standalone"
 
   return (
@@ -139,7 +187,7 @@ const PermissionItem = ({
       disabled={busy || !canAsk}
     >
       <span className="flex size-10 items-center justify-center rounded-2xl bg-muted text-foreground">
-        <Icon className="size-4" />
+        <Bell className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block font-medium">{item.title}</span>

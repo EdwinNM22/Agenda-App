@@ -7,7 +7,6 @@ import { BrandOrb } from "@/components/BrandOrb"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth"
-import { promptAppPermissions } from "@/lib/permissions"
 
 const LAST_EMAIL_KEY = "agenda.lastEmail"
 
@@ -89,7 +88,6 @@ export const LoginPage = () => {
     try {
       await login(nextEmail, password)
       localStorage.setItem(LAST_EMAIL_KEY, nextEmail)
-      void promptAppPermissions(true)
     } catch (err) {
       fail(err instanceof Error ? err.message : "No se pudo iniciar sesión")
     } finally {

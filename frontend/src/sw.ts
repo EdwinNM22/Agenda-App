@@ -38,19 +38,23 @@ registerRoute(
   }),
 )
 
-registerRoute(
-  new NavigationRoute(createHandlerBoundToURL("index.html"), {
-    denylist: [
-      /^\/auth(?:\/|$)/,
-      /^\/tasks(?:\/|$)/,
-      /^\/realtime(?:\/|$)/,
-      /^\/health(?:\/|$)/,
-      /^\/uploads(?:\/|$)/,
-      /^\/ws(?:\/|$)/,
-      /^\/push(?:\/|$)/,
-    ],
-  }),
-)
+try {
+  registerRoute(
+    new NavigationRoute(createHandlerBoundToURL("index.html"), {
+      denylist: [
+        /^\/auth(?:\/|$)/,
+        /^\/tasks(?:\/|$)/,
+        /^\/realtime(?:\/|$)/,
+        /^\/health(?:\/|$)/,
+        /^\/uploads(?:\/|$)/,
+        /^\/ws(?:\/|$)/,
+        /^\/push(?:\/|$)/,
+      ],
+    }),
+  )
+} catch {
+  // En `vite dev` el precache puede no incluir index.html; el SW igual sirve para push.
+}
 
 type PushPayload = {
   title?: string

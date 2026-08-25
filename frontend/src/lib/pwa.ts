@@ -24,6 +24,14 @@ export const isIos = (): boolean => {
   )
 }
 
+export const isSafari = (): boolean => {
+  if (typeof navigator === "undefined") {
+    return false
+  }
+  const ua = navigator.userAgent
+  return /Safari/i.test(ua) && !/Chrome|CriOS|Chromium|FxiOS|EdgiOS|Edg\//i.test(ua)
+}
+
 const persistStorage = () => {
   void navigator.storage?.persist?.().catch(() => undefined)
 }
@@ -105,17 +113,29 @@ export const applyPwaUpdate = async () => {
 }
 
 export const getPwaRegistration = async () => {
-  if (registrationRef) {
+  if (registrationRef?.pushManager) {
     return registrationRef
   }
   if (!("serviceWorker" in navigator)) {
     return null
   }
-  try {
-    return await navigator.serviceWorker.ready
-  } catch {
-    return null
+  const existing = await navigator.serviceWorker.getRegistration()
+  if (existing) {
+    registrationRef = existing
+    return existing
   }
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, 150))
+    if (registrationRef?.pushManager) {
+      return registrationRef
+    }
+    const next = await navigator.serviceWorker.getRegistration()
+    if (next) {
+      registrationRef = next
+      return next
+    }
+  }
+  return registrationRef
 }
 
 export const bootPwa = () => {
