@@ -54,6 +54,16 @@ La app se puede instalar en la pantalla de inicio. Hace falta HTTPS (producción
 
 Tras el build, `index.html` no debe cachearse; el service worker (`sw.js`) tampoco.
 
+### Avisos en el teléfono
+
+La PWA puede avisar a la hora que indiques en cada tarea.
+
+1. Abre la app instalada (en iPhone, desde el icono de inicio).
+2. En Ajustes, activa **Avisos** y acepta el permiso.
+3. En la tarea, pon la **Fecha y hora** y, si quieres, una hora distinta en **Aviso**.
+
+Si no pones hora de aviso, se usa la misma que la de la tarea. El servidor debe estar en marcha a esa hora (y en producción, con HTTPS). En `backend/.env` hacen falta `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` (`npx web-push generate-vapid-keys`).
+
 ### Iconos
 
 Cuatro JPG, mismo nombre y tamaño:

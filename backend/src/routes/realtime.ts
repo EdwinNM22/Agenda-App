@@ -109,6 +109,9 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           "Si el usuario solicita varias tareas en un mismo mensaje, identifica cada tarea por separado.",
           "No mezcles la información de diferentes tareas.",
           "Cada tarea debe tener su propio título, descripción y due_at.",
+          "Si el usuario pide un aviso, recordatorio o notificación a otra hora, pasa notify_at.",
+          "Si no menciona un aviso, no hace falta notify_at: se avisará a la hora de la tarea.",
+          "Si pide la tarea sin aviso, pasa notify_at vacío.",
           "Si una de las tareas tiene información faltante, solicita únicamente la información necesaria para esa tarea.",
         
           // FECHA Y HORA OBLIGATORIAS
@@ -200,6 +203,11 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
                   description:
                     "Fecha y hora completas en 12 horas: YYYY-MM-DD hh:mm AM/PM (ejemplo 2026-08-22 03:00 PM). Obligatoria. No la inventes.",
                 },
+                notify_at: {
+                  type: "string",
+                  description:
+                    "Hora del aviso en 12 horas: YYYY-MM-DD hh:mm AM/PM. Si el usuario no pide otra, omítela. Si no quiere aviso, envía vacío.",
+                },
               },
               required: ["title", "description", "due_at"],
             },
@@ -208,7 +216,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
             type: "function",
             name: "list_tasks",
             description:
-              "Consulta las tareas del usuario. Devuelve id, título, descripción, dueAt y status. Usa ese id para update_task o delete_task. Si pide un día (hoy, mañana, una fecha), pasa date en YYYY-MM-DD. Si pregunta todo lo pendiente, omite date.",
+              "Consulta las tareas del usuario. Devuelve id, título, descripción, dueAt, notifyAt y status. Usa ese id para update_task o delete_task. Si pide un día (hoy, mañana, una fecha), pasa date en YYYY-MM-DD. Si pregunta todo lo pendiente, omite date.",
             parameters: {
               type: "object",
               properties: {
@@ -223,7 +231,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
             type: "function",
             name: "update_task",
             description:
-              "Modifica una tarea existente. Necesita el id de list_tasks. Pasa solo title, description, due_at o status si el usuario los quiere cambiar. status: pending, completed, cancelled o archived.",
+              "Modifica una tarea existente. Necesita el id de list_tasks. Pasa solo title, description, due_at, notify_at o status si el usuario los quiere cambiar. status: pending, completed, cancelled o archived.",
             parameters: {
               type: "object",
               properties: {
@@ -244,6 +252,11 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
                   type: "string",
                   description:
                     "Nueva fecha y hora en 12 horas: YYYY-MM-DD hh:mm AM/PM. Omítela si no cambia.",
+                },
+                notify_at: {
+                  type: "string",
+                  description:
+                    "Nueva hora de aviso en 12 horas: YYYY-MM-DD hh:mm AM/PM. Omítela si no cambia. Vacío para quitar el aviso.",
                 },
                 status: {
                   type: "string",

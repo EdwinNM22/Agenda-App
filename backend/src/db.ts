@@ -160,7 +160,18 @@ export type TaskRow = RowDataPacket & {
   title: string
   description: string
   due_at: string | null
+  notify_at: string | null
+  notified_at: Date | null
   status: TaskStatus
+  created_at: Date
+}
+
+export type PushSubscriptionRow = RowDataPacket & {
+  id: number
+  user_id: number
+  endpoint: string
+  p256dh: string
+  auth: string
   created_at: Date
 }
 
@@ -191,6 +202,7 @@ export type PublicTask = {
   title: string
   description: string
   dueAt: string | null
+  notifyAt: string | null
   status: TaskStatus
   attachments: PublicAttachment[]
 }
@@ -226,6 +238,7 @@ export const toPublicTask = (
   title: task.title,
   description: task.description,
   dueAt: task.due_at,
+  notifyAt: task.notify_at,
   status: parseTaskStatus(task.status) ?? "pending",
   attachments,
 })
@@ -266,9 +279,9 @@ export const ensureTasksTable = async () => {
   if (!dueColumn) {
     await pool.query("ALTER TABLE tasks ADD COLUMN due_at VARCHAR(22) NULL")
     await pool.query("ALTER TABLE tasks ADD INDEX idx_tasks_due (due_at)")
-    return
+  } else {
+    await pool.query("ALTER TABLE tasks MODIFY due_at VARCHAR(22) NULL")
   }
-  await pool.query("ALTER TABLE tasks MODIFY due_at VARCHAR(22) NULL")
 
   const [statusColumns] = await pool.query<RowDataPacket[]>(
     `SELECT COLUMN_NAME FROM information_schema.COLUMNS
@@ -281,6 +294,41 @@ export const ensureTasksTable = async () => {
     )
     await pool.query("ALTER TABLE tasks ADD INDEX idx_tasks_status (status)")
   }
+
+  const [notifyColumns] = await pool.query<RowDataPacket[]>(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = :schemaName AND TABLE_NAME = 'tasks' AND COLUMN_NAME = 'notify_at'`,
+    { schemaName: config.db.database },
+  )
+  if (notifyColumns.length === 0) {
+    await pool.query("ALTER TABLE tasks ADD COLUMN notify_at VARCHAR(22) NULL")
+    await pool.query("ALTER TABLE tasks ADD INDEX idx_tasks_notify (notify_at)")
+  }
+
+  const [notifiedColumns] = await pool.query<RowDataPacket[]>(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = :schemaName AND TABLE_NAME = 'tasks' AND COLUMN_NAME = 'notified_at'`,
+    { schemaName: config.db.database },
+  )
+  if (notifiedColumns.length === 0) {
+    await pool.query("ALTER TABLE tasks ADD COLUMN notified_at DATETIME NULL")
+  }
+}
+
+export const ensurePushSubscriptionsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      user_id INT UNSIGNED NOT NULL,
+      endpoint VARCHAR(1024) NOT NULL,
+      p256dh VARCHAR(255) NOT NULL,
+      auth VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_push_endpoint (endpoint(191)),
+      INDEX idx_push_user (user_id),
+      CONSTRAINT fk_push_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `)
 }
 
 export const ensureAttachmentsTable = async () => {

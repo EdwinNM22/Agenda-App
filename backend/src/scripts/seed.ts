@@ -39,6 +39,8 @@ try {
       title VARCHAR(200) NOT NULL,
       description TEXT NOT NULL,
       due_at VARCHAR(22) NULL,
+      notify_at VARCHAR(22) NULL,
+      notified_at DATETIME NULL,
       status VARCHAR(20) NOT NULL DEFAULT 'pending',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_tasks_user (user_id),

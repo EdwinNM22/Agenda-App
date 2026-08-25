@@ -104,6 +104,20 @@ export const applyPwaUpdate = async () => {
   window.location.reload()
 }
 
+export const getPwaRegistration = async () => {
+  if (registrationRef) {
+    return registrationRef
+  }
+  if (!("serviceWorker" in navigator)) {
+    return null
+  }
+  try {
+    return await navigator.serviceWorker.ready
+  } catch {
+    return null
+  }
+}
+
 export const bootPwa = () => {
   markDisplayMode()
   persistStorage()

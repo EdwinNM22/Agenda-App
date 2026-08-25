@@ -5,6 +5,7 @@ import { LiquidGlass } from "liquid-glass-backdrop-react"
 import { motion } from "motion/react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { FloatingAssistant } from "@/components/FloatingAssistant"
+import { PermissionsPrompt } from "@/components/AppPermissions"
 import { useHideOnScroll } from "@/hooks/useHideOnScroll"
 import { TasksProvider } from "@/lib/tasks-store"
 import { VoiceAssistantProvider } from "@/lib/voice-assistant"
@@ -71,6 +72,7 @@ export const AppShell = () => {
   return (
     <VoiceAssistantProvider>
       <TasksProvider>
+        <PermissionsPrompt />
         <App
           theme="ios"
           dark={theme !== "light"}

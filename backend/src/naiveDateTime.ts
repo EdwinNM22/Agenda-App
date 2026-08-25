@@ -52,3 +52,24 @@ export const tomorrowDate = (): string => {
   date.setDate(date.getDate() + 1)
   return formatDateOnly(date)
 }
+
+export const naiveToDate = (value?: string | null): Date | null => {
+  const naive = toNaiveDateTime(value)
+  if (!naive) {
+    return null
+  }
+  const twelve = naive.match(TWELVE_HOUR)
+  if (!twelve) {
+    return null
+  }
+  const [, date, hourRaw, minute, period] = twelve
+  let hour = Number(hourRaw)
+  if (period.toUpperCase() === "AM") {
+    hour = hour === 12 ? 0 : hour
+  } else {
+    hour = hour === 12 ? 12 : hour + 12
+  }
+  const [year, month, day] = date.split("-").map(Number)
+  const parsed = new Date(year, month - 1, day, hour, Number(minute), 0, 0)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}

@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => {
     "/realtime": { target: apiTarget, changeOrigin: true },
     "/tasks": { target: apiTarget, changeOrigin: true },
     "/uploads": { target: apiTarget, changeOrigin: true },
+    "/push": { target: apiTarget, changeOrigin: true },
     "/ws": { target: apiTarget, changeOrigin: true, ws: true },
   }
 
@@ -47,6 +48,14 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: "prompt",
+        strategies: "injectManifest",
+        srcDir: "src",
+        filename: "sw.ts",
+        injectManifest: {
+          globPatterns: ["**/*.{js,css,html,ico,png,jpg,jpeg,svg,webp,woff,woff2,wasm,mjs}"],
+          globIgnores: ["**/node_modules/**/*", "sw.js", "**/*.map"],
+          maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        },
         includeAssets: ["favicon.svg", "apple-touch-icon.jpg", "pwa/**/*.jpg"],
         manifest: {
           id: "/",
@@ -97,8 +106,6 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
-          globPatterns: ["**/*.{js,css,html,ico,png,jpg,jpeg,svg,webp,woff,woff2,wasm,mjs}"],
-          navigateFallback: "index.html",
           navigateFallbackDenylist: [
             /^\/auth(?:\/|$)/,
             /^\/tasks(?:\/|$)/,
@@ -106,26 +113,7 @@ export default defineConfig(({ mode }) => {
             /^\/health(?:\/|$)/,
             /^\/uploads(?:\/|$)/,
             /^\/ws(?:\/|$)/,
-          ],
-          cleanupOutdatedCaches: true,
-          clientsClaim: true,
-          maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-          runtimeCaching: [
-            {
-              urlPattern: ({ url }) =>
-                ["/auth", "/tasks", "/realtime", "/health", "/ws"].some((prefix) =>
-                  url.pathname.startsWith(prefix),
-                ),
-              handler: "NetworkOnly",
-            },
-            {
-              urlPattern: ({ url }) => url.pathname.startsWith("/uploads/"),
-              handler: "StaleWhileRevalidate",
-              options: {
-                cacheName: "agenda-uploads",
-                expiration: { maxEntries: 80, maxAgeSeconds: 7 * 24 * 60 * 60 },
-              },
-            },
+            /^\/push(?:\/|$)/,
           ],
         },
         devOptions: {

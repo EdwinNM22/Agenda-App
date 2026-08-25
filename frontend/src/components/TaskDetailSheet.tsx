@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from "react"
-import { AlignLeft, CalendarClock, Pencil, Trash2, Type } from "lucide-react"
+import { AlignLeft, Bell, CalendarClock, Pencil, Trash2, Type } from "lucide-react"
 import { FieldLabel } from "@/components/FieldLabel"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +33,7 @@ export const TaskDetailSheet = ({ task, open, onOpenChange, onChanged }: TaskDet
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [dueAt, setDueAt] = useState("")
+  const [notifyAt, setNotifyAt] = useState("")
   const [status, setStatus] = useState<TaskStatus>("pending")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,6 +48,7 @@ export const TaskDetailSheet = ({ task, open, onOpenChange, onChanged }: TaskDet
     setTitle(task.title)
     setDescription(task.description)
     setDueAt(toDatetimeLocalValue(task.dueAt))
+    setNotifyAt(toDatetimeLocalValue(task.notifyAt))
     setStatus(task.status ?? "pending")
     setError(null)
     setEditing(false)
@@ -95,6 +97,7 @@ export const TaskDetailSheet = ({ task, open, onOpenChange, onChanged }: TaskDet
         title: nextTitle,
         description: description.trim(),
         dueAt: dueAt || null,
+        notifyAt: notifyAt || null,
         status,
       })
       await onChanged()
@@ -175,6 +178,19 @@ export const TaskDetailSheet = ({ task, open, onOpenChange, onChanged }: TaskDet
                   type="datetime-local"
                   value={dueAt}
                   onChange={(event) => setDueAt(event.target.value)}
+                  disabled={!editing}
+                />
+              </div>
+              <div className="grid gap-2">
+                <FieldLabel htmlFor="task-detail-notify" icon={Bell}>
+                  Aviso
+                </FieldLabel>
+                <Input
+                  id="task-detail-notify"
+                  className="h-10 max-w-[16.5rem] text-sm"
+                  type="datetime-local"
+                  value={notifyAt}
+                  onChange={(event) => setNotifyAt(event.target.value)}
                   disabled={!editing}
                 />
               </div>

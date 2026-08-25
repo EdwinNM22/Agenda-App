@@ -34,6 +34,8 @@ type CreateTaskArgs = {
   description?: unknown
   due_at?: unknown
   dueAt?: unknown
+  notify_at?: unknown
+  notifyAt?: unknown
 }
 
 const sendEvent = (channel: RTCDataChannel, payload: unknown) => {
@@ -64,7 +66,7 @@ const parseDueAt = (value: unknown): string | null => {
 
 const parseTaskArgs = (
   raw: string,
-): { title: string; description: string; dueAt: string | null } | null => {
+): { title: string; description: string; dueAt: string | null; notifyAt?: string | null } | null => {
   try {
     const parsed = JSON.parse(raw) as CreateTaskArgs
     const title = typeof parsed.title === "string" ? parsed.title.trim() : ""
@@ -72,10 +74,12 @@ const parseTaskArgs = (
     if (!title) {
       return null
     }
+    const notifyRaw = parsed.notify_at ?? parsed.notifyAt
     return {
       title,
       description,
       dueAt: parseDueAt(parsed.due_at ?? parsed.dueAt),
+      notifyAt: notifyRaw === undefined ? undefined : parseDueAt(typeof notifyRaw === "string" ? notifyRaw : null),
     }
   } catch {
     return null
@@ -93,13 +97,14 @@ const runCreateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
   }
 
   try {
-    const { task } = await createTask(args.title, args.description, args.dueAt)
+    const { task } = await createTask(args.title, args.description, args.dueAt, "pending", args.notifyAt)
     notifyTasksChanged()
     sendToolResult(channel, callId, {
       ok: true,
       title: task.title,
       description: task.description,
       dueAt: task.dueAt,
+      notifyAt: task.notifyAt,
     })
   } catch (error) {
     sendToolResult(channel, callId, {
@@ -132,6 +137,7 @@ const runListTasks = async (channel: RTCDataChannel, callId: string, rawArgs: st
         title: task.title,
         description: task.description,
         dueAt: task.dueAt,
+        notifyAt: task.notifyAt,
         status: task.status,
       })),
     })
@@ -169,6 +175,8 @@ const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
     description?: unknown
     due_at?: unknown
     dueAt?: unknown
+    notify_at?: unknown
+    notifyAt?: unknown
     status?: unknown
   }
   try {
@@ -179,6 +187,8 @@ const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
       description?: unknown
       due_at?: unknown
       dueAt?: unknown
+      notify_at?: unknown
+      notifyAt?: unknown
       status?: unknown
     }
   } catch {
@@ -229,10 +239,25 @@ const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
       return
     }
 
+    const notifyRaw = parsed.notify_at ?? parsed.notifyAt
+    let notifyAt = existing.notifyAt
+    if (notifyRaw !== undefined) {
+      notifyAt =
+        typeof notifyRaw === "string" && notifyRaw.trim() ? parseDueAt(notifyRaw) : null
+      if (typeof notifyRaw === "string" && notifyRaw.trim() && !notifyAt) {
+        sendToolResult(channel, callId, {
+          ok: false,
+          message: "La hora de aviso no es válida",
+        })
+        return
+      }
+    }
+
     const { task } = await updateTask(id, {
       title,
       description,
       dueAt,
+      notifyAt,
       status: status ?? existing.status,
     })
     notifyTasksChanged()
@@ -242,6 +267,7 @@ const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
       title: task.title,
       description: task.description,
       dueAt: task.dueAt,
+      notifyAt: task.notifyAt,
       status: task.status,
     })
   } catch (error) {

@@ -27,6 +27,9 @@ export const config = {
   corsOrigins: parseCorsOrigins(process.env.CORS_ORIGIN ?? ""),
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   openaiRealtimeModel: process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime-2.1-mini",
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "",
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? "",
+  vapidSubject: process.env.VAPID_SUBJECT ?? "mailto:agenda@localhost",
   db: {
     host: process.env.DB_HOST ?? "127.0.0.1",
     port: Number(process.env.DB_PORT ?? 3306),

@@ -20,6 +20,7 @@ export type Task = {
   title: string
   description: string
   dueAt: string | null
+  notifyAt: string | null
   status: TaskStatus
   attachments: TaskAttachment[]
 }
@@ -29,6 +30,7 @@ export const isImageAttachment = (attachment: TaskAttachment) =>
 
 export const hydrateTask = (task: Task): Task => ({
   ...task,
+  notifyAt: task.notifyAt ?? null,
   attachments: (task.attachments ?? []).map((item) => ({
     ...item,
     url: assetUrl(item.url),
@@ -126,10 +128,17 @@ export const createTask = async (
   description: string,
   dueAt: string | null,
   status: TaskStatus = "pending",
+  notifyAt?: string | null,
 ) => {
   const data = await api<{ task: Task }>("/tasks", {
     method: "POST",
-    body: JSON.stringify({ title, description, dueAt: toNaiveDateTime(dueAt), status }),
+    body: JSON.stringify({
+      title,
+      description,
+      dueAt: toNaiveDateTime(dueAt),
+      notifyAt: toNaiveDateTime(notifyAt === undefined ? dueAt : notifyAt),
+      status,
+    }),
   })
   return { task: hydrateTask(data.task) }
 }
@@ -138,6 +147,7 @@ export type TaskPatch = {
   title?: string
   description?: string
   dueAt?: string | null
+  notifyAt?: string | null
   status?: TaskStatus
 }
 
@@ -147,6 +157,7 @@ export const updateTask = async (id: number, patch: TaskPatch) => {
     body: JSON.stringify({
       ...patch,
       dueAt: patch.dueAt !== undefined ? toNaiveDateTime(patch.dueAt) : undefined,
+      notifyAt: patch.notifyAt !== undefined ? toNaiveDateTime(patch.notifyAt) : undefined,
     }),
   })
   return { task: hydrateTask(data.task) }

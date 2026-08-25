@@ -28,6 +28,7 @@ type TaskCreateBody = {
   title: string
   description?: string
   dueAt?: string | null
+  notifyAt?: string | null
   status?: string
 }
 
@@ -35,6 +36,7 @@ type TaskPatchBody = {
   title?: string
   description?: string
   dueAt?: string | null
+  notifyAt?: string | null
   status?: string
 }
 
@@ -42,7 +44,7 @@ type TaskParams = {
   id: string
 }
 
-const TASK_COLUMNS = "id, user_id, title, description, due_at, status, created_at"
+const TASK_COLUMNS = "id, user_id, title, description, due_at, notify_at, notified_at, status, created_at"
 
 const parseTaskId = (raw: string): number | null => {
   const id = Number(raw)
@@ -151,6 +153,7 @@ export const registerTaskRoutes = async (app: FastifyInstance) => {
             title: { type: "string", minLength: 1, maxLength: 200 },
             description: { type: "string" },
             dueAt: { type: ["string", "null"] },
+            notifyAt: { type: ["string", "null"] },
             status: { type: "string" },
           },
         },
@@ -160,6 +163,8 @@ export const registerTaskRoutes = async (app: FastifyInstance) => {
       const title = request.body.title.trim()
       const description = (request.body.description ?? "").trim()
       const dueAt = parseDueAt(request.body.dueAt)
+      const notifyAt =
+        request.body.notifyAt === undefined ? dueAt : parseDueAt(request.body.notifyAt)
       const status = request.body.status ? parseTaskStatus(request.body.status) : "pending"
 
       if (!title) {
@@ -168,14 +173,17 @@ export const registerTaskRoutes = async (app: FastifyInstance) => {
       if (request.body.dueAt && !dueAt) {
         return reply.code(400).send({ message: "La fecha y hora no son válidas" })
       }
+      if (request.body.notifyAt && !notifyAt) {
+        return reply.code(400).send({ message: "La hora de aviso no es válida" })
+      }
       if (request.body.status && !status) {
         return reply.code(400).send({ message: "El estado no es válido" })
       }
 
       const [result] = await pool.query<ResultSetHeader>(
-        `INSERT INTO tasks (user_id, title, description, due_at, status)
-         VALUES (:userId, :title, :description, :dueAt, :status)`,
-        { userId: request.user.sub, title, description, dueAt, status },
+        `INSERT INTO tasks (user_id, title, description, due_at, notify_at, status)
+         VALUES (:userId, :title, :description, :dueAt, :notifyAt, :status)`,
+        { userId: request.user.sub, title, description, dueAt, notifyAt, status },
       )
 
       const task = await findOwnTask(result.insertId, request.user.sub)
@@ -200,6 +208,7 @@ export const registerTaskRoutes = async (app: FastifyInstance) => {
             title: { type: "string", minLength: 1, maxLength: 200 },
             description: { type: "string" },
             dueAt: { type: ["string", "null"] },
+            notifyAt: { type: ["string", "null"] },
             status: { type: "string" },
           },
         },
@@ -228,6 +237,14 @@ export const registerTaskRoutes = async (app: FastifyInstance) => {
         }
       }
 
+      let notifyAt = existing.notify_at
+      if (body.notifyAt !== undefined) {
+        notifyAt = parseDueAt(body.notifyAt)
+        if (body.notifyAt && !notifyAt) {
+          return reply.code(400).send({ message: "La hora de aviso no es válida" })
+        }
+      }
+
       let status: TaskStatus = existing.status
       if (body.status !== undefined) {
         const parsed = parseTaskStatus(body.status)
@@ -241,11 +258,23 @@ export const registerTaskRoutes = async (app: FastifyInstance) => {
         return reply.code(400).send({ message: "El título es obligatorio" })
       }
 
+      const resetNotified = notifyAt !== existing.notify_at
+
       await pool.query(
         `UPDATE tasks
-         SET title = :title, description = :description, due_at = :dueAt, status = :status
+         SET title = :title, description = :description, due_at = :dueAt, notify_at = :notifyAt,
+             notified_at = IF(:resetNotified, NULL, notified_at), status = :status
          WHERE id = :id AND user_id = :userId`,
-        { id: taskId, userId: request.user.sub, title, description, dueAt, status },
+        {
+          id: taskId,
+          userId: request.user.sub,
+          title,
+          description,
+          dueAt,
+          notifyAt,
+          resetNotified: resetNotified ? 1 : 0,
+          status,
+        },
       )
 
       const task = await findOwnTask(taskId, request.user.sub)

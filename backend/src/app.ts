@@ -9,6 +9,7 @@ import { registerAuthRoutes } from "./routes/auth.js"
 import { registerHealthRoutes } from "./routes/health.js"
 import { registerRealtimeRoutes } from "./routes/realtime.js"
 import { registerTaskSocketRoutes } from "./routes/taskSocket.js"
+import { registerPushRoutes } from "./routes/push.js"
 import { registerTaskRoutes } from "./routes/tasks.js"
 import { avatarsDir, attachmentsDir, wallpapersDir, ensureUploadDirs } from "./uploads.js"
 
@@ -138,6 +139,7 @@ export const buildApp = async () => {
   await registerAuthRoutes(app)
   await registerRealtimeRoutes(app)
   await registerTaskRoutes(app)
+  await registerPushRoutes(app)
   await registerTaskSocketRoutes(app)
 
   return app
