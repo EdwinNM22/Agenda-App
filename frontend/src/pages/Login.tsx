@@ -113,9 +113,9 @@ export const LoginPage = () => {
         >
           <BrandOrb size="lg" />
           <p className="mt-6 text-sm font-medium text-muted-foreground">{hello}</p>
-          <h1 className="mt-1 text-4xl font-semibold tracking-tight">Agenda</h1>
+          <h1 className="mt-1 text-4xl font-semibold tracking-tight">Bienvenido a EC Agenda</h1>
           <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-            Tu día y EC, en un solo lugar.
+            Tu día y tu asistente en un solo lugar.
           </p>
         </motion.div>
 
@@ -222,20 +222,6 @@ export const LoginPage = () => {
               "Entrar"
             )}
           </Button>
-
-          <button
-            type="button"
-            className="rounded-2xl px-1 py-1 text-left text-xs leading-relaxed text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => {
-              setEmail("admin@agenda.local")
-              setPassword("agenda123")
-              setError(null)
-            }}
-          >
-            Desarrollo: <span className="font-medium">admin@agenda.local</span>
-            {" · "}
-            <span className="font-medium">agenda123</span>
-          </button>
         </motion.form>
       </div>
     </main>
