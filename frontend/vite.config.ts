@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       VitePWA({
-        registerType: "autoUpdate",
+        registerType: "prompt",
         includeAssets: ["favicon.svg", "apple-touch-icon.jpg", "pwa/**/*.jpg"],
         manifest: {
           id: "/",
@@ -109,7 +109,6 @@ export default defineConfig(({ mode }) => {
           ],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
-          skipWaiting: true,
           maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
           runtimeCaching: [
             {

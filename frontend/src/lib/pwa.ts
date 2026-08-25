@@ -74,6 +74,36 @@ const markDisplayMode = () => {
   root.classList.toggle("pwa-ios", isIos() && standalone)
 }
 
+let applyUpdate: ((reloadPage?: boolean) => Promise<void>) | undefined
+let registrationRef: ServiceWorkerRegistration | null = null
+let updateAvailable = false
+const updateListeners = new Set<() => void>()
+
+const notifyUpdateListeners = () => {
+  updateListeners.forEach((listener) => listener())
+}
+
+export const pwaHasUpdate = () => updateAvailable
+
+export const subscribePwaUpdate = (listener: () => void) => {
+  updateListeners.add(listener)
+  return () => {
+    updateListeners.delete(listener)
+  }
+}
+
+export const checkPwaUpdate = async () => {
+  await registrationRef?.update()
+}
+
+export const applyPwaUpdate = async () => {
+  if (applyUpdate) {
+    await applyUpdate(true)
+    return
+  }
+  window.location.reload()
+}
+
 export const bootPwa = () => {
   markDisplayMode()
   persistStorage()
@@ -81,15 +111,26 @@ export const bootPwa = () => {
   bindVisualViewport()
   window.matchMedia("(display-mode: standalone)").addEventListener("change", markDisplayMode)
 
-  registerSW({
+  applyUpdate = registerSW({
     immediate: true,
+    onNeedRefresh() {
+      updateAvailable = true
+      notifyUpdateListeners()
+    },
     onRegisteredSW(_url, registration) {
-      if (!registration) {
-        return
+      registrationRef = registration ?? null
+      const check = () => {
+        void registration?.update()
       }
-      window.setInterval(() => {
-        void registration.update()
-      }, 60 * 60 * 1000)
+      check()
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          check()
+        }
+      })
+      window.addEventListener("pageshow", check)
+      window.addEventListener("focus", check)
+      window.setInterval(check, 5 * 60 * 1000)
     },
   })
 }

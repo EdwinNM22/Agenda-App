@@ -25,6 +25,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { PwaInstall } from "@/components/PwaInstall"
+import { PwaUpdateRow } from "@/components/PwaUpdate"
 import { createAccount, updateProfile, uploadAvatar } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 
@@ -72,6 +73,7 @@ export const OptionsPage = () => {
           onClick={() => setSheet("account")}
         />
         <PwaInstall />
+        <PwaUpdateRow />
       </div>
 
       <Button type="button" variant="destructive" className="glass-danger h-11 border" onClick={logout}>

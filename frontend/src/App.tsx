@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { Navigate, Route, Routes } from "react-router-dom"
 import { AppShell } from "@/components/AppShell"
 import { AuthSplash } from "@/components/AuthSplash"
+import { PwaUpdateBanner } from "@/components/PwaUpdate"
 import { useAuth } from "@/lib/auth"
 import { HomePage } from "@/pages/Home"
 import { LoginPage } from "@/pages/Login"
@@ -24,7 +25,9 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
 
 const App = () => {
   return (
-    <Routes>
+    <>
+      <PwaUpdateBanner />
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route
         element={
@@ -40,6 +43,7 @@ const App = () => {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   )
 }
 
