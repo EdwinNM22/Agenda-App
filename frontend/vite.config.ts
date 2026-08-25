@@ -8,6 +8,10 @@ import { VitePWA } from "vite-plugin-pwa"
 
 const httpsEnabled = process.env.DEV_HTTPS === "1"
 
+const permissionHeaders = {
+  "Permissions-Policy": "microphone=(self), camera=()",
+}
+
 const lanAddresses = (): string[] => {
   const ips: string[] = []
   for (const nets of Object.values(os.networkInterfaces())) {
@@ -147,10 +151,12 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: true,
+      headers: permissionHeaders,
       proxy,
     },
     preview: {
       host: true,
+      headers: permissionHeaders,
       proxy,
     },
   }

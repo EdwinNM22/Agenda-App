@@ -117,6 +117,7 @@ export const buildApp = async () => {
 
   app.addHook("onSend", async (request, reply, payload) => {
     reply.header("X-Content-Type-Options", "nosniff")
+    reply.header("Permissions-Policy", "microphone=(self), camera=()")
     const url = request.url.split("?")[0]
     if (url.endsWith("/sw.js") || url.endsWith("/registerSW.js")) {
       reply.header("Service-Worker-Allowed", "/")

@@ -3,6 +3,7 @@ import {
   captureMicrophone,
   describeMicError,
   releaseCallAudioSession,
+  releaseMicrophone,
   setAudioSessionType,
 } from "@/audio/audioSession"
 import { api } from "@/lib/api"
@@ -94,10 +95,6 @@ const logAssistantHearing = (event: Record<string, unknown>) => {
   }
 }
 
-const stopStream = (stream: MediaStream | null) => {
-  stream?.getTracks().forEach((track) => track.stop())
-}
-
 const waitForIce = (peer: RTCPeerConnection) =>
   new Promise<void>((resolve) => {
     if (peer.iceGatheringState === "complete") {
@@ -163,7 +160,7 @@ export const useRealtimeVoice = () => {
     lastUserTranscriptRef.current = ""
     window.clearTimeout(isiQuietTimerRef.current)
     setHearingUser(false)
-    stopStream(streamRef.current)
+    releaseMicrophone()
     streamRef.current = null
     if (audioRef.current) {
       audioRef.current.pause()
@@ -187,7 +184,6 @@ export const useRealtimeVoice = () => {
     peerRef.current?.close()
     peerRef.current = null
     channelRef.current = null
-    stopStream(streamRef.current)
     streamRef.current = null
     setLocalStream(null)
     setRemoteStream(null)
@@ -197,7 +193,6 @@ export const useRealtimeVoice = () => {
     try {
       const micStream = await captureMicrophone()
       if (generation !== generationRef.current) {
-        stopStream(micStream)
         return
       }
       streamRef.current = micStream
