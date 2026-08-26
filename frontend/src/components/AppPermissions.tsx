@@ -50,6 +50,7 @@ export const PermissionsPrompt = () => {
   const canAsk = status === "off"
 
   const onAllow = async () => {
+    console.info("[avisos] clic Permitir", { status })
     if (!canAsk) {
       setHidden(true)
       return
@@ -59,7 +60,9 @@ export const PermissionsPrompt = () => {
     try {
       await enablePush()
       await refresh()
+      console.info("[avisos] Permitir terminó bien")
     } catch (err) {
+      console.error("[avisos] Permitir falló", err)
       setError(err instanceof Error ? err.message : "No se pudo activar el aviso")
       await refresh()
     } finally {
@@ -105,14 +108,16 @@ export const PermissionsRow = () => {
 
   const onAsk = async (id: AppPermissionId) => {
     const item = items.find((entry) => itemMatches(entry, id))
+    console.info("[avisos] clic en permiso", { id, state: item?.state, granted: item?.granted })
     if (!item || item.granted || item.state === "unsupported" || item.state === "standalone") {
       return
     }
     setBusyId(id)
     try {
       await requestAppPermission(id)
-    } catch {
-      // El listado muestra el estado real, concedido o bloqueado.
+      console.info("[avisos] permiso concedido", id)
+    } catch (error) {
+      console.error("[avisos] permiso rechazado", id, error)
     } finally {
       await refresh()
       setBusyId(null)

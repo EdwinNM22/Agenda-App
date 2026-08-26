@@ -119,21 +119,18 @@ export const getPwaRegistration = async () => {
   if (!("serviceWorker" in navigator)) {
     return null
   }
+  const fromReady = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 4000)),
+  ])
+  if (fromReady?.pushManager) {
+    registrationRef = fromReady
+    return fromReady
+  }
   const existing = await navigator.serviceWorker.getRegistration()
   if (existing) {
     registrationRef = existing
     return existing
-  }
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    await new Promise((resolve) => window.setTimeout(resolve, 150))
-    if (registrationRef?.pushManager) {
-      return registrationRef
-    }
-    const next = await navigator.serviceWorker.getRegistration()
-    if (next) {
-      registrationRef = next
-      return next
-    }
   }
   return registrationRef
 }
@@ -151,7 +148,13 @@ export const bootPwa = () => {
       updateAvailable = true
       notifyUpdateListeners()
     },
-    onRegisteredSW(_url, registration) {
+    onRegisteredSW(url, registration) {
+      console.info("[avisos] service worker registrado", {
+        url,
+        scope: registration?.scope,
+        active: registration?.active?.state ?? null,
+        pushManager: Boolean(registration?.pushManager),
+      })
       registrationRef = registration ?? null
       const check = () => {
         void registration?.update()
