@@ -99,7 +99,7 @@ const formatListTasks = (output: Record<string, unknown>): string | null => {
 const PRESTAMO_LIST_RESOURCES: Record<string, { title: string; keys: string[] }> = {
   cuotas: { title: "Cuotas", keys: ["cuotas", "data", "items"] },
   "cuotas-vencidas": { title: "Cuotas vencidas", keys: ["cuotas", "cuotasVencidas", "data", "items"] },
-  pagos: { title: "Pagos", keys: ["pagos", "data", "items"] },
+  pagos: { title: "Pagos", keys: ["cuotasPagadas", "abonos", "pagos", "data", "items"] },
   ingresos: { title: "Ingresos", keys: ["ingresos", "data", "items"] },
   egresos: { title: "Egresos", keys: ["egresos", "data", "items"] },
   desembolsos: { title: "Desembolsos", keys: ["desembolsos", "creditos", "data", "items"] },
@@ -120,18 +120,24 @@ const PRESTAMO_COLUMNS: Array<{ key: string; label: string }> = [
   { key: "nombre", label: "Nombre" },
   { key: "usuario", label: "Cliente" },
   { key: "cliente", label: "Cliente" },
+  { key: "codigo", label: "Código" },
+  { key: "tipoMovimiento", label: "Tipo" },
   { key: "monto", label: "Monto" },
   { key: "montoDesembolsar", label: "Monto" },
+  { key: "total", label: "Total" },
+  { key: "mora", label: "Mora" },
   { key: "cuota", label: "Cuota" },
   { key: "cuotaMensual", label: "Cuota" },
   { key: "saldo", label: "Saldo" },
   { key: "totalPendiente", label: "Pendiente" },
   { key: "estado", label: "Estado" },
   { key: "fecha", label: "Fecha" },
+  { key: "fechaPagado", label: "Pagado" },
   { key: "fechaVencimiento", label: "Vence" },
   { key: "fechaDesembolsado", label: "Desembolso" },
   { key: "motivo", label: "Motivo" },
   { key: "tipo", label: "Tipo" },
+  { key: "creditoTipo", label: "Crédito" },
   { key: "dui", label: "DUI" },
   { key: "telefono", label: "Teléfono" },
 ]
@@ -147,6 +153,16 @@ const findListRows = (
     }
   }
   return []
+}
+
+/** Pagos: une cuotas pagadas + abonos para una sola tabla en chat. */
+const findPagosRows = (data: Record<string, unknown>): Array<Record<string, unknown>> => {
+  const cuotas = asObjectRows(data.cuotasPagadas)
+  const abonos = asObjectRows(data.abonos)
+  if (cuotas.length === 0 && abonos.length === 0) {
+    return findListRows(data, ["pagos", "data", "items"])
+  }
+  return [...cuotas, ...abonos]
 }
 
 const formatQueryPrestamo = (output: Record<string, unknown>): string | null => {
@@ -165,7 +181,7 @@ const formatQueryPrestamo = (output: Record<string, unknown>): string | null => 
   }
 
   const data = asRecord(output.data) ?? output
-  const rows = findListRows(data, config.keys)
+  const rows = resource === "pagos" ? findPagosRows(data) : findListRows(data, config.keys)
   return formatRows(config.title, rows, PRESTAMO_COLUMNS)
 }
 

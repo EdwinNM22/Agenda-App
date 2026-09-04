@@ -63,24 +63,30 @@ const PRESTAMO_COLUMNS: ReportColumn[] = [
   { key: "nombre", label: "Nombre" },
   { key: "usuario", label: "Cliente" },
   { key: "cliente", label: "Cliente" },
+  { key: "codigo", label: "Código" },
+  { key: "tipoMovimiento", label: "Tipo" },
   { key: "monto", label: "Monto" },
   { key: "montoDesembolsar", label: "Monto" },
+  { key: "total", label: "Total" },
+  { key: "mora", label: "Mora" },
   { key: "cuota", label: "Cuota" },
   { key: "cuotaMensual", label: "Cuota" },
   { key: "saldo", label: "Saldo" },
   { key: "totalPendiente", label: "Pendiente" },
   { key: "estado", label: "Estado" },
   { key: "fecha", label: "Fecha" },
+  { key: "fechaPagado", label: "Pagado" },
   { key: "fechaVencimiento", label: "Vence" },
   { key: "fechaDesembolsado", label: "Desembolso" },
   { key: "motivo", label: "Motivo" },
   { key: "tipo", label: "Tipo" },
+  { key: "creditoTipo", label: "Crédito" },
 ]
 
 const PRESTAMO_LIST_KEYS: Record<string, { title: string; keys: string[] }> = {
   cuotas: { title: "Cuotas", keys: ["cuotas", "data", "items"] },
   "cuotas-vencidas": { title: "Cuotas vencidas", keys: ["cuotas", "cuotasVencidas", "data", "items"] },
-  pagos: { title: "Pagos", keys: ["pagos", "data", "items"] },
+  pagos: { title: "Pagos", keys: ["cuotasPagadas", "abonos", "pagos", "data", "items"] },
   ingresos: { title: "Ingresos", keys: ["ingresos", "data", "items"] },
   egresos: { title: "Egresos", keys: ["egresos", "data", "items"] },
   desembolsos: { title: "Desembolsos", keys: ["desembolsos", "creditos", "data", "items"] },
@@ -96,6 +102,15 @@ const findListRows = (data: Record<string, unknown>, keys: string[]) => {
     }
   }
   return []
+}
+
+const findPagosRows = (data: Record<string, unknown>) => {
+  const cuotas = asObjectRows(data.cuotasPagadas)
+  const abonos = asObjectRows(data.abonos)
+  if (cuotas.length === 0 && abonos.length === 0) {
+    return findListRows(data, ["pagos", "data", "items"])
+  }
+  return [...cuotas, ...abonos]
 }
 
 const periodMeta = (output: Record<string, unknown>) => {
@@ -156,7 +171,11 @@ const buildFromPrestamo = (output: Record<string, unknown>, title: string): Repo
   const data = asRecord(output.data) ?? output
   const config = PRESTAMO_LIST_KEYS[resource]
   const sectionTitle = config?.title ?? "Resultados"
-  const rows = config ? findListRows(data, config.keys) : []
+  const rows = config
+    ? resource === "pagos"
+      ? findPagosRows(data)
+      : findListRows(data, config.keys)
+    : []
   const columns = pickColumns(rows, PRESTAMO_COLUMNS)
   const metadata = periodMeta(output)
 

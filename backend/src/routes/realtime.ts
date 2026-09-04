@@ -165,13 +165,15 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           "«Agenda de cobros» o «quién viene a pagar» es Atlas (cuotas/cobros), no la agenda personal de tareas. «Mi agenda» o «mis pendientes» suele ser list_tasks salvo que el contexto sea claramente financiero.",
           "Toda cifra, lista, nombre de cliente o movimiento de Atlas debe salir exclusivamente de query_prestamo en esa respuesta. Prohibido inventar, estimar o reutilizar datos de consultas anteriores sin una nueva llamada a la herramienta.",
           "Preguntas sobre quién viene a pagar, cobros del día, cuotas que vencen hoy/mañana, morosos, clientes, créditos, ingresos, egresos o pagos → query_prestamo.",
-          "Recursos query_prestamo: cuotas (cobros por vencer), cuotas-vencidas (mora), creditos, clientes, pagos (ya cobrados), desembolsos, caja-chica, caja-chica-detalle, ingresos, egresos, resumen, liquidez.",
+          "Recursos query_prestamo: cuotas (cobros por vencer), cuotas-vencidas (mora con nombre de cliente), creditos, clientes, pagos (cuotas cobradas y abonos con cliente), desembolsos, caja-chica, caja-chica-detalle, ingresos, egresos, resumen, liquidez.",
           "Params: periodo (hoy, ayer, esta semana, semana pasada, este mes, mes pasado, etc.), fecha, fechaInicio/fechaFin, estado, q, id, creditoId, clienteId, limit, year. La app resuelve periodo a fechas automáticamente.",
           "PERÍODO: cada pregunta sobre un día o rango distinto requiere una nueva query_prestamo; responde solo con los datos de esa consulta, sin mezclar ni acumular cifras de periodos anteriores.",
           `PERÍODO (referencia): hoy es ${todayDate()}. Puedes pasar params.periodo con la expresión del usuario (hoy, ayer, esta semana, semana pasada, este mes, mes pasado, este año, año pasado) o params.fecha / params.fechaInicio+fechaFin en YYYY-MM-DD; la app resuelve el rango automáticamente.`,
-          "INGRESOS Y EGRESOS: usa resource ingresos o egresos. Un día → params.fecha o params.periodo. Rango → params.periodo (este mes, mes pasado, etc.) o params.fechaInicio + params.fechaFin. El API filtra en servidor; la respuesta trae fechaInicio/fechaFin del período consultado.",
-          "Cada ingreso y egreso trae el campo motivo (puede ser null). Léelo al consultar para tener contexto; está disponible para follow-ups sin inventar.",
-          "Si el usuario pregunta de dónde viene un monto o por un movimiento, usa ese motivo: resume en tus palabras lo esencial. Cita el texto literal del motivo solo si el usuario pide el motivo exacto, textual o completo. Si motivo es null, dilo.",
+          "COBROS VS INGRESOS: «ingresos» de caja (resource ingresos) son movimientos varios del historial (motivo/tipo/monto); NO traen cliente ni crédito. «Cobros», «quién pagó», «cuotas cobradas», «de qué fueron esos ingresos» (si se refiere a pagos de clientes) → resource pagos (cuotasPagadas y abonos con usuario/clienteNombre). Totales del día sin desglose → caja-chica; detalle de cobros → pagos.",
+          "Si el usuario pregunta el total y luego de qué fueron / quién pagó / desglose, DEBES llamar query_prestamo otra vez con resource pagos (mismo período). No respondas solo con el monto anterior.",
+          "MORA / MOROSOS / CLIENTES CON MORA: usa resource cuotas-vencidas (trae usuario/clienteNombre, monto, mora, fechaVencimiento). Alternativa: cuotas con params.estado=vencido. Narra nombre del cliente y montos; nunca digas que no hay nombres si la tool los trae.",
+          "INGRESOS Y EGRESOS (caja): resource ingresos o egresos. Un día → params.fecha o params.periodo. Rango → params.periodo o fechaInicio+fechaFin. Cada fila trae motivo (puede ser null), tipo, monto, fecha. Para follow-ups sobre esos movimientos de caja, nueva consulta o usa el motivo de la consulta; no inventes clientes.",
+          "Si el usuario pregunta de dónde viene un monto de caja (ingresos/egresos), usa motivo/tipo. Cita el motivo literal solo si pide el texto exacto. Si motivo es null, dilo.",
           "Si el usuario cambia de período, llama query_prestamo otra vez con el período nuevo. Prohibido reutilizar listas o totales de una consulta anterior. Comparar dos períodos → dos llamadas separadas, sin mezclar filas ni sumar entre períodos.",
           "Sin período explícito en ingresos, egresos, desembolsos o pagos, usa periodo=hoy. Histórico completo solo si lo piden (todo el tiempo, desde el inicio, total acumulado, etc.).",
           "El saldo actual puede citarse como liquidez; ingresos, egresos y pagos que narres deben ser del período consultado.",
@@ -317,7 +319,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
             type: "function",
             name: "query_prestamo",
             description:
-              "Consulta Atlas, el sistema financiero de préstamos (caja, cuotas, créditos, clientes, ingresos, egresos, mora). Devuelve JSON del período en params. Cada pregunta requiere una llamada nueva; responde solo con lo que devuelve esta consulta.",
+              "Consulta Atlas (caja, cuotas, créditos, clientes, ingresos, egresos, mora, cobros). Devuelve JSON del período. Cada pregunta o follow-up de detalle requiere una llamada nueva; responde solo con esta consulta.",
             parameters: {
               type: "object",
               properties: {
@@ -338,7 +340,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
                     "liquidez",
                   ],
                   description:
-                    "Qué datos consultar. ingresos/egresos = movimientos del período (cada uno con motivo, monto, tipo, fecha).",
+                    "Qué datos consultar. pagos = cobros de cuotas/abonos con cliente. ingresos/egresos = movimientos de caja (motivo, sin cliente). cuotas-vencidas = mora con nombre de cliente.",
                 },
                 params: {
                   type: "object",

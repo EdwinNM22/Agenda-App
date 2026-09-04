@@ -264,14 +264,14 @@ El único texto generado fuera de las tools es el **saludo inicial** al conectar
 | --- | --- |
 | `caja-chica` | Resumen del periodo (hoy, ayer, semana, mes, año): saldos, totales ingresos/egresos/desembolsos. Params: `fecha`, `fechaInicio`/`fechaFin` o `year` |
 | `caja-chica-detalle` | Desglose por categoría (cuotas pagadas, gastos empresa, etc.) |
-| `ingresos` | Lista de movimientos de ingreso (siempre con campo `motivo`) |
+| `ingresos` | Movimientos de ingreso de **caja** (campo `motivo`; sin cliente de crédito) |
 | `egresos` | Egresos de caja del periodo **incluyendo desembolsos de crédito** (`totalEgresos`, `egresos[]` con `motivo`, `desembolsos[]`) |
 | `desembolsos` | Lista de créditos desembolsados con datos del crédito |
 | `creditos` | Búsqueda/consulta de créditos; con `id` incluye cuotas |
 | `resumen` | KPIs de cartera, liquidación hoy, invertido |
-| `cuotas-vencidas` | Lista de cuotas en mora |
+| `cuotas-vencidas` | Cuotas en mora **con nombre de cliente** (`usuario` / `clienteNombre`) |
 | `clientes` | Búsqueda por nombre, DUI, teléfono |
-| `pagos` | Cuotas pagadas y abonos del periodo |
+| `pagos` | Cuotas pagadas y abonos del periodo **con cliente** (desglose de cobros) |
 | `liquidez` | Saldo actual del sistema + KPIs de cartera (no histórico de un día) |
 
 Parámetros opcionales en `params`: `fecha` (un día), `fechaInicio`, `fechaFin`, `year`, `q`, `id`, `limit`, `estado`.
@@ -299,7 +299,9 @@ También acepta `fecha`, `fechaInicio`/`fechaFin` en YYYY-MM-DD, o las mismas ex
 
 ### Motivos en ingresos y egresos
 
-Cada fila de `ingresos` / `egresos` trae **`motivo`** (string o `null`). Isi lo recibe al consultar y lo usa como contexto.
+Cada fila de `ingresos` / `egresos` trae **`motivo`** (string o `null`). Son movimientos de caja, no cobros de cuotas.
+
+**Cobros vs ingresos:** para «quién pagó», «de qué fueron los cobros/ingresos de clientes» o el desglose tras un total del día, usar `pagos` (trae `usuario`/`clienteNombre`). Mora con nombres → `cuotas-vencidas`. Follow-ups de detalle → nueva llamada a la tool; no reutilizar solo el monto de una consulta anterior.
 
 | Pregunta del usuario | Comportamiento |
 | --- | --- |

@@ -200,14 +200,14 @@ Palabras y temas que disparan `query_prestamo`:
 | Resource | Uso |
 | --- | --- |
 | `cuotas` | Cobros por vencer / quién paga (pendientes y vencidas del día por defecto) |
-| `cuotas-vencidas` | Mora global |
+| `cuotas-vencidas` | Mora global **con nombre de cliente** (`usuario` / `clienteNombre`) |
 | `creditos` | Búsqueda y detalle de créditos (`id` incluye cuotas) |
 | `clientes` | Búsqueda por nombre, DUI, teléfono |
-| `pagos` | Cuotas ya cobradas y abonos del período |
+| `pagos` | Cuotas cobradas y abonos del período (**con cliente**); usar para desglose de cobros |
 | `desembolsos` | Créditos desembolsados |
 | `caja-chica` | Resumen del período (saldos, totales) |
 | `caja-chica-detalle` | Desglose por categoría (mismo servicio que el admin) |
-| `ingresos` | Movimientos de ingreso del período |
+| `ingresos` | Movimientos de ingreso de **caja** (motivo/tipo; **sin** cliente de crédito) |
 | `egresos` | Egresos del período (+ desembolsos embebidos en listado) |
 | `resumen` | KPIs de cartera |
 | `liquidez` | Saldo actual y KPIs (no histórico de un día) |
@@ -255,36 +255,28 @@ Tras cada consulta, la tool añade al JSON:
 - `periodoConsultado` (`fechaInicio`, `fechaFin`)
 - Recordatorio: responder solo con esos datos; no combinar con consultas anteriores.
 
-### 3.6 Ingresos y egresos
+### 3.6 Ingresos, egresos y cobros
 
-- `resource`: `ingresos` o `egresos`.
-- Un día → `fecha` o `periodo`.
-- Rango → `periodo` o `fechaInicio` + `fechaFin`.
-- El Hub filtra en servidor; la respuesta incluye `fechaInicio` y `fechaFin`.
-- Cada movimiento incluye `motivo` (string o `null`), `monto`, `tipo`, `fecha`, etc. Sin imágenes en el payload del Hub.
+- `ingresos` / `egresos` = movimientos de **caja** (historial): `motivo`, `monto`, `tipo`, `fecha`. **No** traen cliente de crédito.
+- Cobros de cuotas / «quién pagó» / «de qué fueron esos ingresos» (si habla de clientes) → `pagos` (`cuotasPagadas` + `abonos` con `usuario`/`clienteNombre`).
+- Tras un total (`caja-chica` o cifra) y un follow-up de desglose → **nueva** `query_prestamo` con `pagos` (mismo período).
+- Mora / morosos → `cuotas-vencidas` (incluye nombre de cliente).
+- Un día → `fecha` o `periodo`. Rango → `periodo` o `fechaInicio` + `fechaFin`.
+- Motivo de caja: resumir; literal solo si piden el texto exacto. `motivo` null → decirlo.
 
-### 3.7 Caja, saldos y motivos
-
-- Saldo actual puede citarse vía `liquidez`.
-- Ingresos, egresos y pagos narrados → solo del período consultado.
-- Al consultar ingresos/egresos, el `motivo` ya viene en cada fila: Isi lo lee para contexto.
-- Si preguntan **cuánto hay en caja / saldo**: dar la cifra del período y terminar (sin desglose no pedido).
-- Si preguntan **de dónde / por qué / el motivo**: usar el `motivo` de la consulta; **resumir** en palabras propias. Texto **literal** del motivo solo si el usuario pide el motivo exacto/completo.
-- `motivo` null → decirlo; no inventar.
-
-### 3.8 Análisis
+### 3.7 Análisis
 
 - Interpretar solo los datos consultados (ingresos vs egresos, mora, liquidez).
 - No memorizar respuestas ni sugerir pasos que el usuario no pidió.
 
-### 3.9 Créditos y desembolsos (respuesta breve primero)
+### 3.8 Créditos y desembolsos (respuesta breve primero)
 
 - Primera respuesta: **nombre del cliente** y **monto** (`montoDesembolsar` o `monto`).
 - Preguntar si quiere más detalle antes de mencionar: frecuencia, `fechaDesembolsado`, totales de cuotas, pendiente, vencido, etc.
 - Listados de varios: nombre y monto de cada uno; ofrecer profundizar en uno.
 - Desglose cuota por cuota → `creditos` o `desembolsos` con `params.id`.
 
-### 3.10 Optimización de payload (código)
+### 3.9 Optimización de payload (código)
 
 - En `caja-chica-detalle`, la tool elimina el array `cuotas` de cada crédito desembolsado y deja historiales lean (con `motivo`, sin imágenes).
 - En `ingresos` / `egresos`, la tool normaliza filas lean con `motivo` siempre presente (valor o `null`).
