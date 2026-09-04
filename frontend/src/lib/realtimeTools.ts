@@ -1,12 +1,18 @@
 import {
   createTask,
   deleteTask,
+  getTaskGroup,
   listTasks,
   parseTaskStatus,
+  TASK_STATUS_LABELS,
   toNaiveDateTime,
   updateTask,
 } from "@/lib/tasks"
+import { api } from "@/lib/api"
+import { assetUrl } from "@/lib/apiBase"
+import { normalizePrestamoParams, resolvePrestamoPeriodPhrase } from "@/lib/prestamoPeriod"
 import { notifyTasksChanged } from "@/lib/taskEvents"
+import { formatToolResultMarkdown } from "@/lib/toolResultMarkdown"
 
 type RealtimeEvent = {
   type?: string
@@ -57,6 +63,21 @@ const sendToolResult = (channel: RTCDataChannel, callId: string, output: unknown
   sendEvent(channel, { type: "response.create" })
 }
 
+type ToolRunResult = {
+  output: Record<string, unknown>
+  context?: { resource?: string }
+} | null
+
+const finishTool = (
+  channel: RTCDataChannel,
+  callId: string,
+  output: Record<string, unknown>,
+  context?: { resource?: string },
+): ToolRunResult => {
+  sendToolResult(channel, callId, output)
+  return { output, context }
+}
+
 const parseDueAt = (value: unknown): string | null => {
   if (typeof value !== "string") {
     return null
@@ -86,20 +107,19 @@ const parseTaskArgs = (
   }
 }
 
-const runCreateTask = async (channel: RTCDataChannel, callId: string, rawArgs: string) => {
+const runCreateTask = async (channel: RTCDataChannel, callId: string, rawArgs: string): Promise<ToolRunResult> => {
   const args = parseTaskArgs(rawArgs)
   if (!args) {
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: false,
       message: "Faltó el título de la tarea",
     })
-    return
   }
 
   try {
     const { task } = await createTask(args.title, args.description, args.dueAt, "pending", args.notifyAt)
     notifyTasksChanged()
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: true,
       title: task.title,
       description: task.description,
@@ -107,7 +127,7 @@ const runCreateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
       notifyAt: task.notifyAt,
     })
   } catch (error) {
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: false,
       message: error instanceof Error ? error.message : "No se pudo crear la tarea",
     })
@@ -117,8 +137,16 @@ const runCreateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
 const parseListDate = (raw: string): string | undefined => {
   try {
     const parsed = JSON.parse(raw) as { date?: unknown }
-    if (typeof parsed.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date.trim())) {
-      return parsed.date.trim()
+    if (typeof parsed.date !== "string") {
+      return undefined
+    }
+    const trimmed = parsed.date.trim()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed
+    }
+    const resolved = resolvePrestamoPeriodPhrase(trimmed)
+    if (resolved?.fecha) {
+      return resolved.fecha
     }
   } catch {
     // sin fecha: listar todas
@@ -126,23 +154,28 @@ const parseListDate = (raw: string): string | undefined => {
   return undefined
 }
 
-const runListTasks = async (channel: RTCDataChannel, callId: string, rawArgs: string) => {
+const runListTasks = async (channel: RTCDataChannel, callId: string, rawArgs: string): Promise<ToolRunResult> => {
   const date = parseListDate(rawArgs)
   try {
     const { tasks } = await listTasks(date)
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: true,
-      tasks: tasks.slice(0, 30).map((task) => ({
-        id: task.id,
-        title: task.title,
-        description: task.description,
-        dueAt: task.dueAt,
-        notifyAt: task.notifyAt,
-        status: task.status,
-      })),
+      tasks: tasks.slice(0, 30).map((task) => {
+        const status = task.status ?? "pending"
+        return {
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          dueAt: task.dueAt,
+          notifyAt: task.notifyAt,
+          status,
+          statusLabel: TASK_STATUS_LABELS[status],
+          group: getTaskGroup(task.dueAt),
+        }
+      }),
     })
   } catch (error) {
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: false,
       message: error instanceof Error ? error.message : "No se pudieron leer las tareas",
     })
@@ -167,7 +200,7 @@ const findTaskById = async (id: number) => {
   return tasks.find((task) => task.id === id) ?? null
 }
 
-const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: string) => {
+const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: string): Promise<ToolRunResult> => {
   let parsed: {
     task_id?: unknown
     id?: unknown
@@ -192,24 +225,21 @@ const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
       status?: unknown
     }
   } catch {
-    sendToolResult(channel, callId, { ok: false, message: "No se pudieron leer los datos" })
-    return
+    return finishTool(channel, callId, { ok: false, message: "No se pudieron leer los datos" })
   }
 
   const id = parseTaskId(parsed.task_id ?? parsed.id)
   if (!id) {
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: false,
       message: "Faltó el id de la tarea. Llama list_tasks primero.",
     })
-    return
   }
 
   try {
     const existing = await findTaskById(id)
     if (!existing) {
-      sendToolResult(channel, callId, { ok: false, message: "Tarea no encontrada" })
-      return
+      return finishTool(channel, callId, { ok: false, message: "Tarea no encontrada" })
     }
 
     const title =
@@ -223,20 +253,18 @@ const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
       typeof dueRaw === "string" && dueRaw.trim() ? parseDueAt(dueRaw) : existing.dueAt
 
     if (typeof dueRaw === "string" && dueRaw.trim() && !dueAt) {
-      sendToolResult(channel, callId, {
+      return finishTool(channel, callId, {
         ok: false,
         message: "La fecha y hora no son válidas",
       })
-      return
     }
 
     const status = parsed.status !== undefined ? parseTaskStatus(parsed.status) : existing.status
     if (parsed.status !== undefined && !status) {
-      sendToolResult(channel, callId, {
+      return finishTool(channel, callId, {
         ok: false,
         message: "El estado debe ser pendiente, completada, cancelada o archivada",
       })
-      return
     }
 
     const notifyRaw = parsed.notify_at ?? parsed.notifyAt
@@ -245,11 +273,10 @@ const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
       notifyAt =
         typeof notifyRaw === "string" && notifyRaw.trim() ? parseDueAt(notifyRaw) : null
       if (typeof notifyRaw === "string" && notifyRaw.trim() && !notifyAt) {
-        sendToolResult(channel, callId, {
+        return finishTool(channel, callId, {
           ok: false,
           message: "La hora de aviso no es válida",
         })
-        return
       }
     }
 
@@ -261,7 +288,7 @@ const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
       status: status ?? existing.status,
     })
     notifyTasksChanged()
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: true,
       id: task.id,
       title: task.title,
@@ -271,49 +298,273 @@ const runUpdateTask = async (channel: RTCDataChannel, callId: string, rawArgs: s
       status: task.status,
     })
   } catch (error) {
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: false,
       message: error instanceof Error ? error.message : "No se pudo actualizar la tarea",
     })
   }
 }
 
-const runDeleteTask = async (channel: RTCDataChannel, callId: string, rawArgs: string) => {
+const runDeleteTask = async (channel: RTCDataChannel, callId: string, rawArgs: string): Promise<ToolRunResult> => {
   let parsed: { task_id?: unknown; id?: unknown }
   try {
     parsed = JSON.parse(rawArgs) as { task_id?: unknown; id?: unknown }
   } catch {
-    sendToolResult(channel, callId, { ok: false, message: "No se pudieron leer los datos" })
-    return
+    return finishTool(channel, callId, { ok: false, message: "No se pudieron leer los datos" })
   }
 
   const id = parseTaskId(parsed.task_id ?? parsed.id)
   if (!id) {
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: false,
       message: "Faltó el id de la tarea. Llama list_tasks primero.",
     })
-    return
   }
 
   try {
     const existing = await findTaskById(id)
     if (!existing) {
-      sendToolResult(channel, callId, { ok: false, message: "Tarea no encontrada" })
-      return
+      return finishTool(channel, callId, { ok: false, message: "Tarea no encontrada" })
     }
 
     await deleteTask(id)
     notifyTasksChanged()
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: true,
       id,
       title: existing.title,
     })
   } catch (error) {
-    sendToolResult(channel, callId, {
+    return finishTool(channel, callId, {
       ok: false,
       message: error instanceof Error ? error.message : "No se pudo eliminar la tarea",
+    })
+  }
+}
+
+type QueryPrestamoArgs = {
+  resource?: unknown
+  params?: Record<string, unknown>
+}
+
+const PRESTAMO_RESOURCE_SLUGS: Record<string, string> = {
+  "caja-chica": "caja-chica",
+  "caja-chica-detalle": "caja-chica-detalle",
+  ingresos: "ingresos",
+  egresos: "egresos",
+  desembolsos: "desembolsos",
+  resumen: "resumen",
+  "cuotas-vencidas": "cuotas-vencidas",
+  cuotas: "cuotas",
+  creditos: "creditos",
+  clientes: "clientes",
+  pagos: "pagos",
+  liquidez: "liquidez",
+}
+
+const toQueryString = (params: Record<string, unknown> | undefined): string => {
+  if (!params) {
+    return ""
+  }
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) {
+      continue
+    }
+    const text = String(value).trim()
+    if (text) {
+      search.set(key, text)
+    }
+  }
+  const qs = search.toString()
+  return qs ? `?${qs}` : ""
+}
+
+const PRESTAMO_QUERY_TIMEOUT_MS = 20_000
+
+const periodFromResult = (
+  data: unknown,
+  params: Record<string, unknown> | undefined,
+): { fechaInicio?: string; fechaFin?: string } | undefined => {
+  const payload = data && typeof data === "object" ? (data as Record<string, unknown>) : undefined
+  const fechaInicio =
+    (typeof payload?.fechaInicio === "string" && payload.fechaInicio) ||
+    (typeof params?.fechaInicio === "string" && params.fechaInicio) ||
+    (typeof params?.fecha === "string" && params.fecha) ||
+    undefined
+  const fechaFin =
+    (typeof payload?.fechaFin === "string" && payload.fechaFin) ||
+    (typeof params?.fechaFin === "string" && params.fechaFin) ||
+    (typeof params?.fecha === "string" && params.fecha) ||
+    undefined
+
+  if (!fechaInicio && !fechaFin) {
+    return undefined
+  }
+
+  return { fechaInicio, fechaFin }
+}
+
+const enrichPrestamoResult = (
+  result: Record<string, unknown>,
+  resource: string,
+  params: Record<string, unknown> | undefined,
+): Record<string, unknown> => {
+  const periodoConsultado = periodFromResult(result.data, params)
+  return {
+    ...result,
+    resource,
+    periodoConsultado,
+    instruccion:
+      "Responde solo con los datos de esta respuesta y periodoConsultado. No combines ni sumes con consultas anteriores de la conversación.",
+  }
+}
+
+const MOTIVO_HISTORIAL_KEYS = [
+  "id",
+  "monto",
+  "capital",
+  "interes",
+  "motivo",
+  "tipo",
+  "origen",
+  "destino",
+  "fecha",
+  "registradoPorNombre",
+] as const
+
+const slimHistorialRow = (item: unknown): unknown => {
+  if (!item || typeof item !== "object") {
+    return item
+  }
+  const source = item as Record<string, unknown>
+  const row: Record<string, unknown> = {}
+  for (const key of MOTIVO_HISTORIAL_KEYS) {
+    if (key === "motivo") {
+      const raw = source.motivo
+      row.motivo =
+        typeof raw === "string" && raw.trim() ? raw.trim() : raw === null || raw === undefined ? null : String(raw)
+      continue
+    }
+    if (key in source) {
+      row[key] = source[key]
+    }
+  }
+  if (!("motivo" in row)) {
+    row.motivo = null
+  }
+  return row
+}
+
+const slimHistorialList = (list: unknown): unknown =>
+  Array.isArray(list) ? list.map(slimHistorialRow) : list
+
+const trimPrestamoData = (resource: string, data: unknown): unknown => {
+  if (!data || typeof data !== "object") {
+    return data
+  }
+
+  if (resource === "ingresos" || resource === "egresos") {
+    const copy = { ...(data as Record<string, unknown>) }
+    if (resource === "ingresos" && "ingresos" in copy) {
+      copy.ingresos = slimHistorialList(copy.ingresos)
+    }
+    if (resource === "egresos" && "egresos" in copy) {
+      copy.egresos = slimHistorialList(copy.egresos)
+    }
+    return copy
+  }
+
+  if (resource !== "caja-chica-detalle") {
+    return data
+  }
+
+  const copy = structuredClone(data) as Record<string, unknown>
+  for (const key of [
+    "ingresosCapitales",
+    "ingresosVarios",
+    "gastosEmpresa",
+    "egresosVarios",
+    "egresosPagoPlanillas",
+    "egresosCuotasRetiros",
+    "capitalizacionInteresIngresos",
+    "capitalizacionInteresEgresos",
+  ] as const) {
+    if (key in copy) {
+      copy[key] = slimHistorialList(copy[key])
+    }
+  }
+  for (const key of ["creditosDesembolsados", "creditosDesembolsadosEstadisticas"] as const) {
+    const list = copy[key]
+    if (!Array.isArray(list)) {
+      continue
+    }
+    copy[key] = list.map((item) => {
+      if (!item || typeof item !== "object") {
+        return item
+      }
+      const credito = { ...(item as Record<string, unknown>) }
+      delete credito.cuotas
+      return credito
+    })
+  }
+  return copy
+}
+
+const queryPrestamoApi = async (slug: string, params: Record<string, unknown> | undefined) => {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), PRESTAMO_QUERY_TIMEOUT_MS)
+  try {
+    return await api<Record<string, unknown>>(
+      `/api/integrations/prestamo/${slug}${toQueryString(params)}`,
+      { signal: controller.signal },
+    )
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+const runQueryPrestamo = async (channel: RTCDataChannel, callId: string, raw: string): Promise<ToolRunResult> => {
+  try {
+    const parsed = JSON.parse(raw) as QueryPrestamoArgs
+    const resource = typeof parsed.resource === "string" ? parsed.resource.trim() : ""
+    const slug = PRESTAMO_RESOURCE_SLUGS[resource]
+    if (!slug) {
+      return finishTool(channel, callId, {
+        ok: false,
+        message: "resource inválido para query_prestamo",
+      })
+    }
+
+    const params = normalizePrestamoParams(parsed.params)
+
+    const result = await queryPrestamoApi(slug, params)
+    if (result.ok && result.data !== undefined) {
+      return finishTool(
+        channel,
+        callId,
+        enrichPrestamoResult(
+          {
+            ...result,
+            data: trimPrestamoData(resource, result.data),
+          },
+          resource,
+          params,
+        ),
+        { resource },
+      )
+    }
+    return finishTool(channel, callId, enrichPrestamoResult(result, resource, params))
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? "La consulta a Atlas tardó demasiado"
+        : error instanceof Error
+          ? error.message
+          : "No se pudo consultar Atlas"
+    return finishTool(channel, callId, {
+      ok: false,
+      message,
     })
   }
 }
@@ -324,6 +575,89 @@ type RealtimeToolHandlers = {
   onToolEnd?: (name: string) => void
   onAwaitingResponse?: () => void
   shouldEndCall?: () => boolean
+  onReportGenerated?: (report: { url: string; fileName: string; title: string }) => void
+  onStructuredChat?: (markdown: string) => void
+}
+
+const publishStructuredChat = (
+  toolName: string,
+  result: ToolRunResult,
+  handlers?: RealtimeToolHandlers,
+) => {
+  if (!result) {
+    return
+  }
+  const markdown = formatToolResultMarkdown(toolName, result.output)
+  if (markdown) {
+    handlers?.onStructuredChat?.(markdown)
+  }
+}
+
+const runGenerateReportPdf = async (
+  channel: RTCDataChannel,
+  callId: string,
+  rawArgs: string,
+  handlers?: RealtimeToolHandlers,
+): Promise<ToolRunResult> => {
+  let parsed: { report?: unknown; fileName?: unknown }
+  try {
+    parsed = JSON.parse(rawArgs) as { report?: unknown; fileName?: unknown }
+  } catch {
+    return finishTool(channel, callId, { ok: false, message: "No se pudieron leer los datos del reporte" })
+  }
+
+  if (!parsed.report || typeof parsed.report !== "object") {
+    return finishTool(channel, callId, {
+      ok: false,
+      message: "Falta el objeto report con title y sections",
+    })
+  }
+
+  try {
+    const result = await api<{
+      ok?: boolean
+      url?: string
+      fileName?: string
+      title?: string
+      bytes?: number
+      message?: string
+    }>("/api/reports/pdf", {
+      method: "POST",
+      body: JSON.stringify({
+        report: parsed.report,
+        fileName: typeof parsed.fileName === "string" ? parsed.fileName : undefined,
+      }),
+    })
+
+    if (!result.ok || !result.url || !result.fileName || !result.title) {
+      return finishTool(channel, callId, {
+        ok: false,
+        message: result.message ?? "No se pudo generar el PDF",
+      })
+    }
+
+    const url = assetUrl(result.url)
+    handlers?.onReportGenerated?.({
+      url,
+      fileName: result.fileName,
+      title: result.title,
+    })
+
+    return finishTool(channel, callId, {
+      ok: true,
+      url,
+      fileName: result.fileName,
+      title: result.title,
+      bytes: result.bytes,
+      instruccion:
+        "El PDF ya está disponible en el chat del usuario. Confirma breve por voz. No leas el contenido completo del PDF.",
+    })
+  } catch (error) {
+    return finishTool(channel, callId, {
+      ok: false,
+      message: error instanceof Error ? error.message : "No se pudo generar el PDF",
+    })
+  }
 }
 
 export const handleRealtimeToolEvent = async (
@@ -377,7 +711,8 @@ export const handleRealtimeToolEvent = async (
         handlers?.onAwaitingResponse?.()
       }
       if (call.name === "list_tasks") {
-        await runListTasks(channel, call.callId, call.args)
+        const result = await runListTasks(channel, call.callId, call.args)
+        publishStructuredChat(call.name, result, handlers)
         handlers?.onAwaitingResponse?.()
       }
       if (call.name === "update_task") {
@@ -386,6 +721,15 @@ export const handleRealtimeToolEvent = async (
       }
       if (call.name === "delete_task") {
         await runDeleteTask(channel, call.callId, call.args)
+        handlers?.onAwaitingResponse?.()
+      }
+      if (call.name === "query_prestamo") {
+        const result = await runQueryPrestamo(channel, call.callId, call.args)
+        publishStructuredChat(call.name, result, handlers)
+        handlers?.onAwaitingResponse?.()
+      }
+      if (call.name === "generate_report_pdf") {
+        await runGenerateReportPdf(channel, call.callId, call.args, handlers)
         handlers?.onAwaitingResponse?.()
       }
       if (call.name === "end_call") {

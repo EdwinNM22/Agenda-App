@@ -4,12 +4,16 @@ import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type RenderTas
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import type { TaskAttachment } from "@/lib/tasks"
 
 GlobalWorkerOptions.workerSrc = pdfWorker
 
+export type PdfViewerFile = {
+  url: string
+  name: string
+}
+
 type TaskPdfViewerProps = {
-  file: TaskAttachment | null
+  file: PdfViewerFile | null
   onClose: () => void
 }
 
@@ -57,7 +61,7 @@ export const TaskPdfViewer = ({ file, onClose }: TaskPdfViewerProps) => {
       cancelled = true
       void task.destroy()
     }
-  }, [file?.id, file?.url])
+  }, [file?.url, file?.name])
 
   useEffect(() => {
     if (!container) {

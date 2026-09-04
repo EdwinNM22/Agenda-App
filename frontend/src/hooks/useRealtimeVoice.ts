@@ -7,17 +7,39 @@ import {
   setAudioSessionType,
 } from "@/audio/audioSession"
 import { api } from "@/lib/api"
+import { handleAssistantChatEvent } from "@/lib/assistantChatEvents"
 import { handleRealtimeToolEvent } from "@/lib/realtimeTools"
+import { useAssistantChatMessages } from "@/hooks/useAssistantChatMessages"
 import { isHangupCommand } from "@/lib/voiceCommands"
 import type { RealtimeVoice } from "@/lib/voices"
 
 export type VoiceStatus = "idle" | "connecting" | "live" | "error"
 
-export type ToolActivity = "create_task" | "update_task" | "delete_task" | null
+export type ToolActivity =
+  | "create_task"
+  | "update_task"
+  | "delete_task"
+  | "query_prestamo"
+  | "generate_report_pdf"
+  | null
 
-const TOOL_ACTIVITY = new Set(["create_task", "update_task", "delete_task"])
+export type { AssistantMessage } from "@/lib/assistantChatEvents"
+
+const TOOL_ACTIVITY = new Set([
+  "create_task",
+  "update_task",
+  "delete_task",
+  "query_prestamo",
+  "generate_report_pdf",
+])
 
 const pickActivity = (names: string[]): ToolActivity => {
+  if (names.includes("generate_report_pdf")) {
+    return "generate_report_pdf"
+  }
+  if (names.includes("query_prestamo")) {
+    return "query_prestamo"
+  }
   if (names.includes("create_task")) {
     return "create_task"
   }
@@ -89,7 +111,6 @@ const logAssistantHearing = (event: Record<string, unknown>) => {
     return
   }
   if (type === "response.created") {
-    assistantSaidBuffer = ""
     logIsi("empezó a hablar")
     return
   }
@@ -150,10 +171,19 @@ export const useRealtimeVoice = () => {
   const isiSpeakingRef = useRef(false)
   const lastUserTranscriptRef = useRef("")
   const isiQuietTimerRef = useRef(0)
+  const awaitingTimerRef = useRef(0)
   const [busy, setBusy] = useState(false)
   const [hearingUser, setHearingUser] = useState(false)
   const toolsRef = useRef<string[]>([])
   const [activity, setActivity] = useState<ToolActivity>(null)
+  const { messages, resetMessages, appendPdfReport, appendMarkdownMessage, clearVoiceSkip, chatController } =
+    useAssistantChatMessages()
+  const appendPdfReportRef = useRef(appendPdfReport)
+  appendPdfReportRef.current = appendPdfReport
+  const appendMarkdownMessageRef = useRef(appendMarkdownMessage)
+  appendMarkdownMessageRef.current = appendMarkdownMessage
+  const clearVoiceSkipRef = useRef(clearVoiceSkip)
+  clearVoiceSkipRef.current = clearVoiceSkip
 
   const syncActivity = useCallback(() => {
     const next = pickActivity(toolsRef.current)
@@ -184,6 +214,7 @@ export const useRealtimeVoice = () => {
     lastUserTranscriptRef.current = ""
     toolsRef.current = []
     window.clearTimeout(isiQuietTimerRef.current)
+    window.clearTimeout(awaitingTimerRef.current)
     setHearingUser(false)
     setActivity(null)
     stopMicrophone(streamRef.current)
@@ -214,6 +245,7 @@ export const useRealtimeVoice = () => {
     setLocalStream(null)
     setRemoteStream(null)
     setError(null)
+    resetMessages()
     setStatus("connecting")
 
     try {
@@ -371,6 +403,8 @@ export const useRealtimeVoice = () => {
           }
           if (type === "input_audio_buffer.speech_started") {
             setHearingUser(true)
+            // Nuevo turno del usuario: no arrastrar un “saltar voz” de la consulta anterior.
+            clearVoiceSkipRef.current()
           }
           if (type === "input_audio_buffer.speech_stopped") {
             setHearingUser(false)
@@ -396,19 +430,21 @@ export const useRealtimeVoice = () => {
               syncBusy()
             }, 1200)
           }
-          logAssistantHearing(event as Record<string, unknown>)
+          const record = event as Record<string, unknown>
           if (type.includes("input_audio_transcription.completed")) {
-            const heard = nestedTranscript(event as Record<string, unknown>) || assistantHeardBuffer
+            const heard = nestedTranscript(record) || assistantHeardBuffer
             if (heard) {
               lastUserTranscriptRef.current = heard
             }
           }
           if (type === "response.created") {
+            window.clearTimeout(awaitingTimerRef.current)
             awaitingResponseRef.current = false
             responseOpenRef.current += 1
             syncBusy()
           }
           if (type === "response.done") {
+            window.clearTimeout(awaitingTimerRef.current)
             awaitingResponseRef.current = false
             responseOpenRef.current = Math.max(0, responseOpenRef.current - 1)
             window.clearTimeout(isiQuietTimerRef.current)
@@ -427,6 +463,8 @@ export const useRealtimeVoice = () => {
               }, 1800)
             }
           }
+          handleAssistantChatEvent(record, chatController.current)
+          logAssistantHearing(record)
           void handleRealtimeToolEvent(
             channel,
             event as Parameters<typeof handleRealtimeToolEvent>[1],
@@ -458,6 +496,15 @@ export const useRealtimeVoice = () => {
               onAwaitingResponse: () => {
                 awaitingResponseRef.current = true
                 syncBusy()
+                window.clearTimeout(awaitingTimerRef.current)
+                awaitingTimerRef.current = window.setTimeout(() => {
+                  if (!awaitingResponseRef.current) {
+                    return
+                  }
+                  awaitingResponseRef.current = false
+                  syncBusy()
+                  logIsi("timeout esperando respuesta tras tool")
+                }, 45_000)
               },
               shouldEndCall: () => {
                 if (greetingPlayingRef.current || isiSpeakingRef.current) {
@@ -470,6 +517,12 @@ export const useRealtimeVoice = () => {
                   return false
                 }
                 return true
+              },
+              onReportGenerated: (report) => {
+                appendPdfReportRef.current(report)
+              },
+              onStructuredChat: (markdown) => {
+                appendMarkdownMessageRef.current(markdown)
               },
             },
           )
@@ -509,7 +562,7 @@ export const useRealtimeVoice = () => {
       setStatus("error")
       setError(describeMicError(err))
     }
-  }, [hangUp, releaseCall, syncActivity, syncBusy])
+  }, [chatController, hangUp, releaseCall, resetMessages, syncActivity, syncBusy])
 
   useEffect(() => {
     return () => {
@@ -517,5 +570,17 @@ export const useRealtimeVoice = () => {
     }
   }, [hangUp])
 
-  return { status, error, start, hangUp, audioRef, localStream, remoteStream, busy, hearingUser, activity }
+  return {
+    status,
+    error,
+    start,
+    hangUp,
+    audioRef,
+    localStream,
+    remoteStream,
+    busy,
+    hearingUser,
+    activity,
+    messages,
+  }
 }

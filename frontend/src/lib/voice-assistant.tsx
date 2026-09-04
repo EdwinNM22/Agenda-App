@@ -9,7 +9,7 @@ import {
   type RefObject,
 } from "react"
 import { useAudioLevel } from "@/hooks/useAudioLevel"
-import { useRealtimeVoice, type ToolActivity, type VoiceStatus } from "@/hooks/useRealtimeVoice"
+import { useRealtimeVoice, type AssistantMessage, type ToolActivity, type VoiceStatus } from "@/hooks/useRealtimeVoice"
 import { useSilenceHangup } from "@/hooks/useSilenceHangup"
 import { useAuth } from "@/lib/auth"
 import {
@@ -29,7 +29,9 @@ type VoiceAssistantContextValue = {
   localStream: MediaStream | null
   remoteStream: MediaStream | null
   busy: boolean
+  hearingUser: boolean
   activity: ToolActivity
+  messages: AssistantMessage[]
   voiceLevel: number
   userLevel: number
   voice: RealtimeVoice
@@ -47,10 +49,10 @@ const loadSavedVoice = (): RealtimeVoice => {
 
 export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth()
-  const { status, error, start: startSession, hangUp, audioRef, localStream, remoteStream, busy, hearingUser, activity } =
+  const { status, error, start: startSession, hangUp, audioRef, localStream, remoteStream, busy, hearingUser, activity, messages } =
     useRealtimeVoice()
   const voiceLevel = useAudioLevel(remoteStream)
-  const userLevel = 0
+  const userLevel = useAudioLevel(localStream)
   const [voice, setVoiceState] = useState<RealtimeVoice>(DEFAULT_VOICE)
   const live = status === "live"
   const selectingLocked = status === "connecting" || live
@@ -83,7 +85,9 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
       localStream,
       remoteStream,
       busy,
+      hearingUser,
       activity,
+      messages,
       voiceLevel,
       userLevel,
       voice,
@@ -100,7 +104,9 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
       localStream,
       remoteStream,
       busy,
+      hearingUser,
       activity,
+      messages,
       voiceLevel,
       userLevel,
       voice,

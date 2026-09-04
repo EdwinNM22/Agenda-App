@@ -11,7 +11,9 @@ import { registerRealtimeRoutes } from "./routes/realtime.js"
 import { registerTaskSocketRoutes } from "./routes/taskSocket.js"
 import { registerPushRoutes } from "./routes/push.js"
 import { registerTaskRoutes } from "./routes/tasks.js"
-import { avatarsDir, attachmentsDir, wallpapersDir, ensureUploadDirs } from "./uploads.js"
+import { registerPrestamoIntegrationRoutes } from "./routes/integrations/prestamo.js"
+import { registerReportRoutes } from "./routes/reports.js"
+import { avatarsDir, attachmentsDir, wallpapersDir, reportsDir, ensureUploadDirs } from "./uploads.js"
 
 const normalizeOrigin = (origin: string): string => origin.trim().replace(/\/$/, "")
 
@@ -115,6 +117,18 @@ export const buildApp = async () => {
       }
     },
   })
+  await app.register(fastifyStatic, {
+    root: reportsDir,
+    prefix: "/uploads/reports/",
+    decorateReply: false,
+    wildcard: true,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".pdf")) {
+        res.header("Cache-Control", "private, max-age=3600")
+        res.header("Content-Type", "application/pdf")
+      }
+    },
+  })
 
   app.addHook("onSend", async (request, reply, payload) => {
     reply.header("X-Content-Type-Options", "nosniff")
@@ -141,6 +155,8 @@ export const buildApp = async () => {
   await registerTaskRoutes(app)
   await registerPushRoutes(app)
   await registerTaskSocketRoutes(app)
+  await registerPrestamoIntegrationRoutes(app)
+  await registerReportRoutes(app)
 
   return app
 }

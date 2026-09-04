@@ -1,11 +1,10 @@
 import { PhoneOff } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useLocation, useNavigate } from "react-router-dom"
+import { AssistantOrb } from "@/components/AssistantOrb"
 import { ActivityPill, activityLabel } from "@/components/BusyState"
-import Orb from "@/components/Orb"
 import { Button } from "@/components/ui/button"
 import { useVoiceAssistant } from "@/lib/voice-assistant"
-import { useTheme } from "@/lib/theme"
 
 const hangUpBottom = "calc(var(--k-safe-area-bottom) + 6.25rem)"
 const orbBottom = "calc(var(--k-safe-area-bottom) + 9.25rem)"
@@ -13,8 +12,7 @@ const orbBottom = "calc(var(--k-safe-area-bottom) + 9.25rem)"
 export const FloatingAssistant = () => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { theme, wallpaperColor } = useTheme()
-  const { status, live, hangUp, voiceLevel, activity } = useVoiceAssistant()
+  const { status, live, hangUp, activity } = useVoiceAssistant()
   const active = live || status === "connecting"
   const onHome = pathname === "/"
   const statusCopy = activityLabel(activity)
@@ -27,7 +25,7 @@ export const FloatingAssistant = () => {
             key="assistant-orb"
             type="button"
             layoutId="assistant-orb"
-            className="assistant-orb glass-surface pointer-events-auto fixed right-4 z-40 size-24 overflow-hidden rounded-full border"
+            className="pointer-events-auto fixed right-4 z-40"
             style={{ bottom: orbBottom }}
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -36,18 +34,7 @@ export const FloatingAssistant = () => {
             onClick={() => navigate("/")}
             aria-label="Volver al asistente"
           >
-            <div className="assistant-orb-glow size-full">
-            <Orb
-              hue={270}
-              hoverIntensity={0.22}
-              rotateOnHover
-              forceHoverState={live}
-              voiceLevel={voiceLevel}
-              backgroundColor={
-                theme === "wallpaper" ? (wallpaperColor ?? "#1c1c1e") : theme === "light" ? "#ffffff" : "#0a0a0a"
-              }
-            />
-            </div>
+            <AssistantOrb size={96} />
           </motion.button>
         ) : null}
       </AnimatePresence>

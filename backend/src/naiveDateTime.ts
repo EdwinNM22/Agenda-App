@@ -53,6 +53,12 @@ export const tomorrowDate = (): string => {
   return formatDateOnly(date)
 }
 
+export const yesterdayDate = (): string => {
+  const date = new Date()
+  date.setDate(date.getDate() - 1)
+  return formatDateOnly(date)
+}
+
 export const naiveToDate = (value?: string | null): Date | null => {
   const naive = toNaiveDateTime(value)
   if (!naive) {

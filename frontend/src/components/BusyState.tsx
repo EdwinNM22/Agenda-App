@@ -63,6 +63,8 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   create_task: "Creando tarea",
   update_task: "Actualizando tarea",
   delete_task: "Eliminando tarea",
+  query_prestamo: "Consultando Atlas",
+  generate_report_pdf: "Generando PDF",
 }
 
 export const activityLabel = (activity: string | null) =>

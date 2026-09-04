@@ -10,6 +10,9 @@ import { useAuth } from "@/lib/auth"
 
 const LAST_EMAIL_KEY = "agenda.lastEmail"
 
+const SEED_EMAIL = "admin@agenda.local"
+const SEED_PASSWORD = "agenda123"
+
 const greeting = () => {
   const hour = new Date().getHours()
   if (hour < 12) {
@@ -33,8 +36,8 @@ const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 
 export const LoginPage = () => {
   const { user, loading, login } = useAuth()
-  const [email, setEmail] = useState(readLastEmail)
-  const [password, setPassword] = useState("")
+  const [email, setEmail] = useState(() => readLastEmail() || (import.meta.env.DEV ? SEED_EMAIL : ""))
+  const [password, setPassword] = useState(() => (import.meta.env.DEV ? SEED_PASSWORD : ""))
   const [showPassword, setShowPassword] = useState(false)
   const [capsOn, setCapsOn] = useState(false)
   const [error, setError] = useState<string | null>(null)

@@ -23,7 +23,7 @@ clientsClaim()
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 
-const apiPrefixes = ["/auth", "/tasks", "/realtime", "/health", "/ws", "/push"]
+const apiPrefixes = ["/auth", "/tasks", "/realtime", "/health", "/ws", "/push", "/api"]
 
 registerRoute(
   ({ url }) => apiPrefixes.some((prefix) => url.pathname.startsWith(prefix)),
@@ -49,6 +49,7 @@ try {
         /^\/uploads(?:\/|$)/,
         /^\/ws(?:\/|$)/,
         /^\/push(?:\/|$)/,
+        /^\/api(?:\/|$)/,
       ],
     }),
   )

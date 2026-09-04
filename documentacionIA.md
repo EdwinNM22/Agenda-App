@@ -216,7 +216,112 @@ Imports del paquete: `loadRnnoise`, `loadSpeex`, `RnnoiseWorkletNode`, `SpeexWor
 | `frontend/src/lib/voices.ts` | Catálogo de voces en UI |
 | `frontend/src/lib/voice-assistant.tsx` | Contexto global de la llamada |
 | `frontend/src/pages/Dashboard.tsx` | Controles Hablar / voz / colgar |
+| `frontend/src/lib/realtimeTools.ts` | Ejecuta tools (tareas + `query_prestamo`) |
+| `backend/src/integrations/prestamo/client.ts` | Cliente HTTP hacia PrestamoApp (Atlas) |
+| `backend/src/routes/integrations/prestamo.ts` | Proxy JWT `/api/integrations/prestamo/*` |
 | `frontend/package.json` | `@sapphi-red/web-noise-suppressor` |
+
+## Integración Atlas (PrestamoApp)
+
+**Atlas** es el sistema financiero de préstamos (Multipréstamos): caja, créditos, cuotas, cobros, mora, clientes, ingresos y egresos. Cuando el usuario dice «Atlas», «multipréstamos», «la caja», «cobros» o «mora», Isi debe usar `query_prestamo`.
+
+**Agenda personal** (recordatorios del usuario en esta app) es distinta: usa `list_tasks` y herramientas de tareas. «Mi agenda» / «mis pendientes» → personal; «agenda de cobros» / «quién paga» → Atlas.
+
+Isi consulta datos de Atlas mediante `query_prestamo`. El modelo recibe JSON y razona; **no hay respuestas predefinidas ni datos mock** en el proxy ni en las tools.
+
+### Flujo
+
+```
+Usuario (voz) → OpenAI Realtime → query_prestamo
+  → frontend/realtimeTools.ts (JWT)
+  → ec-assistant GET /api/integrations/prestamo/{recurso}
+  → PrestamoApp GET /integrations/hub/{recurso} (X-API-Key)
+```
+
+### Configuración (`backend/.env`)
+
+```env
+PRESTAMO_API_URL=http://127.0.0.1:8083
+PRESTAMO_HUB_API_KEY=<misma que HUB_INTEGRATION_API_KEY en PrestamoApp>
+PRESTAMO_TENANT=atlas
+```
+
+En PrestamoApp (`backend/prestamo-app/.env`): `HUB_INTEGRATION_API_KEY` debe coincidir.
+
+### Sin respuestas hardcodeadas
+
+| Área | Fuente de verdad | Qué no hace el código |
+| --- | --- | --- |
+| Atlas (caja, cuotas, ingresos…) | `query_prestamo` → Hub PrestamoApp | No inventa cifras ni listas; solo pasa JSON al modelo |
+| Agenda personal | `list_tasks` / CRUD de tareas | No devuelve tareas de ejemplo |
+| Errores de tool | Mensajes de validación (`ok: false`) | El modelo los interpreta; no son respuestas al usuario listas para leer |
+
+El único texto generado fuera de las tools es el **saludo inicial** al conectar (una frase, vía `response.create` en el cliente) y mensajes de **estado de UI** («Conectando», «Consultando Atlas»).
+
+### Recursos disponibles (`query_prestamo.resource`)
+
+| resource | Para qué sirve |
+| --- | --- |
+| `caja-chica` | Resumen del periodo (hoy, ayer, semana, mes, año): saldos, totales ingresos/egresos/desembolsos. Params: `fecha`, `fechaInicio`/`fechaFin` o `year` |
+| `caja-chica-detalle` | Desglose por categoría (cuotas pagadas, gastos empresa, etc.) |
+| `ingresos` | Lista de movimientos de ingreso (siempre con campo `motivo`) |
+| `egresos` | Egresos de caja del periodo **incluyendo desembolsos de crédito** (`totalEgresos`, `egresos[]` con `motivo`, `desembolsos[]`) |
+| `desembolsos` | Lista de créditos desembolsados con datos del crédito |
+| `creditos` | Búsqueda/consulta de créditos; con `id` incluye cuotas |
+| `resumen` | KPIs de cartera, liquidación hoy, invertido |
+| `cuotas-vencidas` | Lista de cuotas en mora |
+| `clientes` | Búsqueda por nombre, DUI, teléfono |
+| `pagos` | Cuotas pagadas y abonos del periodo |
+| `liquidez` | Saldo actual del sistema + KPIs de cartera (no histórico de un día) |
+
+Parámetros opcionales en `params`: `fecha` (un día), `fechaInicio`, `fechaFin`, `year`, `q`, `id`, `limit`, `estado`.
+
+### Prioridad temporal
+
+Por defecto Isi trabaja **solo con el período pedido**. El Hub filtra en servidor; la respuesta incluye `fechaInicio` y `fechaFin`.
+
+**Resolución automática de períodos** (`frontend/src/lib/prestamoPeriod.ts`): en `query_prestamo`, el modelo puede pasar `params.periodo` con la expresión del usuario y la app convierte a fechas antes de llamar al API:
+
+| `params.periodo` (ejemplos) | Rango resuelto |
+| --- | --- |
+| hoy, ayer | Un solo día |
+| esta semana | Lunes de esta semana → hoy |
+| semana pasada | Lunes a domingo de la semana anterior |
+| este mes | Día 1 del mes → hoy |
+| mes pasado | Mes calendario anterior completo |
+| este año / año pasado | Año en curso o anterior |
+
+También acepta `fecha`, `fechaInicio`/`fechaFin` en YYYY-MM-DD, o las mismas expresiones relativas en esos campos.
+
+- **Cada pregunta con fechas distintas** → nueva llamada; no reutilizar JSON anterior.
+- Comparar dos períodos → dos llamadas separadas, sin mezclar filas ni sumar entre períodos.
+- Sin período explícito en ingresos/egresos/desembolsos/pagos → `periodo=hoy`.
+
+### Motivos en ingresos y egresos
+
+Cada fila de `ingresos` / `egresos` trae **`motivo`** (string o `null`). Isi lo recibe al consultar y lo usa como contexto.
+
+| Pregunta del usuario | Comportamiento |
+| --- | --- |
+| «¿Cuánto tenemos en caja?» | Solo el saldo del período |
+| «¿De dónde viene?» / «¿Cuál fue el motivo?» | Resume el `motivo` (monto/tipo si hace falta) |
+| «Léeme el motivo exacto» / textual | Cita el texto literal del campo |
+| `motivo` null | Decirlo; no inventar |
+
+### Créditos y desembolsos (respuesta breve primero)
+
+Al preguntar por un crédito o desembolso, Isi responde solo **nombre del cliente** y **monto**, y pregunta si quiere más detalle. Los datos están disponibles en la consulta (frecuencia, fechas, conteos y totales de cuotas, etc.); el desglose cuota por cuota requiere `params.id`. Solo profundiza si el usuario confirma o pregunta algo concreto (ej. cuotas vencidas, total pendiente).
+
+Isi puede llamar `query_prestamo` varias veces en una conversación (p. ej. comparar períodos), pero **cada respuesta al usuario debe basarse solo en la consulta del período que pidió**, sin mezclar datos de llamadas previas salvo que el usuario pida explícitamente una comparación entre dos períodos ya consultados.
+
+### Pruebas de voz sugeridas
+
+- «¿Cuál es la caja chica de Atlas?»
+- «¿Cómo va el mes?» (ingresos vs egresos)
+- «¿Por qué tenemos esa cantidad en caja?» (movimientos con motivo)
+- «¿Cuánto tenemos en mora?»
+- «¿Podemos desembolsar 50 mil?» (liquidez + razonamiento)
+- «Busca a Juan y dime qué debe»
 
 ## Cómo probarlo
 

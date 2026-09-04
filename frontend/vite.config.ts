@@ -7,6 +7,9 @@ import { defineConfig, loadEnv } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 
 const httpsEnabled = process.env.DEV_HTTPS === "1"
+// Safari iOS corrompe fácil el SW en `vite dev` (pantalla en blanco hasta borrar datos del sitio).
+// HTTPS local no implica SW: actívalo solo con DEV_PWA=1 cuando pruebes push/PWA.
+const pwaDevEnabled = process.env.DEV_PWA === "1"
 
 const permissionHeaders = {
   "Permissions-Policy": "microphone=(self), camera=()",
@@ -25,14 +28,17 @@ const lanAddresses = (): string[] => {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, path.resolve(import.meta.dirname), "")
+  const backendEnv = loadEnv(mode, path.resolve(import.meta.dirname, "../backend"), "")
+  const backendPort = backendEnv.PORT?.trim() || "3001"
   const rawApi = env.VITE_API_URL?.trim().replace(/\/$/, "") ?? ""
   const apiTarget = !rawApi
-    ? "http://127.0.0.1:3001"
+    ? `http://127.0.0.1:${backendPort}`
     : /^https?:\/\//i.test(rawApi)
       ? rawApi
-      : `http://${/:\d+$/.test(rawApi) ? rawApi : `${rawApi}:3001`}`
+      : `http://${/:\d+$/.test(rawApi) ? rawApi : `${rawApi}:${backendPort}`}`
 
   const proxy = {
+    "/api": { target: apiTarget, changeOrigin: true },
     "/health": { target: apiTarget, changeOrigin: true },
     "/auth": { target: apiTarget, changeOrigin: true },
     "/realtime": { target: apiTarget, changeOrigin: true },
@@ -114,10 +120,11 @@ export default defineConfig(({ mode }) => {
             /^\/uploads(?:\/|$)/,
             /^\/ws(?:\/|$)/,
             /^\/push(?:\/|$)/,
+            /^\/api(?:\/|$)/,
           ],
         },
         devOptions: {
-          enabled: httpsEnabled,
+          enabled: pwaDevEnabled,
           type: "module",
           navigateFallback: "index.html",
         },

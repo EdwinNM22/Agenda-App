@@ -8,11 +8,13 @@ export const uploadsRoot = path.join(backendRoot, "uploads")
 export const avatarsDir = path.join(uploadsRoot, "avatars")
 export const wallpapersDir = path.join(uploadsRoot, "wallpapers")
 export const attachmentsDir = path.join(uploadsRoot, "attachments")
+export const reportsDir = path.join(uploadsRoot, "reports")
 
 export const ensureUploadDirs = async () => {
   await mkdir(avatarsDir, { recursive: true })
   await mkdir(wallpapersDir, { recursive: true })
   await mkdir(attachmentsDir, { recursive: true })
+  await mkdir(reportsDir, { recursive: true })
 }
 
 export const withoutApiPrefix = (url: string): string => url.replace(/^\/api(?=\/)/, "")
@@ -94,6 +96,14 @@ export const removeStoredAttachment = async (relativeFile: string) => {
 export const removeTaskAttachments = async (userId: number, taskId: number) => {
   await removePath(taskAttachmentsDiskDir(userId, taskId))
 }
+
+export const reportPublicPath = (relativePath: string) => `/uploads/reports/${relativePath}`
+
+export const userReportFolder = (userId: number, assetId: string) =>
+  path.posix.join("users", String(userId), assetId)
+
+export const userReportDiskDir = (userId: number, assetId: string) =>
+  path.join(reportsDir, "users", String(userId), assetId)
 
 export const avatarFilenameFromUrl = (avatarUrl: string | null): string | null => {
   if (!avatarUrl) {

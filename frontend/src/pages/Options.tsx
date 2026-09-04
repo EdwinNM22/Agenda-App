@@ -25,7 +25,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { PermissionsRow } from "@/components/AppPermissions"
 import { PwaUpdateRow } from "@/components/PwaUpdate"
 import { createAccount, updateProfile, uploadAvatar } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
@@ -73,7 +72,6 @@ export const OptionsPage = () => {
           hint="Nombre, correo y contraseña"
           onClick={() => setSheet("account")}
         />
-        <PermissionsRow />
         <PwaUpdateRow />
       </div>
 

@@ -38,4 +38,10 @@ export const config = {
     database: process.env.DB_NAME ?? "agenda",
     socketPath: process.env.DB_SOCKET || undefined,
   },
+  prestamo: {
+    apiUrl: (process.env.PRESTAMO_API_URL ?? "http://127.0.0.1:8083").trim().replace(/\/$/, ""),
+    hubApiKey: (process.env.PRESTAMO_HUB_API_KEY ?? "").trim(),
+    tenant: (process.env.PRESTAMO_TENANT ?? "atlas").trim().toLowerCase(),
+    timeoutMs: Number(process.env.PRESTAMO_TIMEOUT_MS ?? 15_000),
+  },
 } as const
