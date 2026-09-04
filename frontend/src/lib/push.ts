@@ -109,7 +109,7 @@ export const describePushStatus = (status: PushStatus) => {
   }
   if (status === "denied") {
     return isIos()
-      ? "Los avisos están bloqueados. En el iPhone: Ajustes → Notificaciones → Agenda (o Safari) → Permitir."
+      ? "Los avisos están bloqueados. En el iPhone: Ajustes → Notificaciones → EC Assistant (o Safari) → Permitir."
       : "Los avisos están bloqueados. En el Mac: Ajustes del Sistema → Notificaciones → Safari → Permitir."
   }
   if (status === "on") {

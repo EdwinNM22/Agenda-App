@@ -1,6 +1,6 @@
-# Agenda
+# EC Assistant
 
-Agenda personal con recordatorios. Arquitectura inicial **toda en TypeScript**:
+Asistente personal con recordatorios. Arquitectura inicial **toda en TypeScript**:
 
 - `backend/` — Fastify, JWT, MariaDB (`mysql2`)
 - `frontend/` — Vite, React, shadcn/ui

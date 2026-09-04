@@ -72,9 +72,9 @@ export default defineConfig(({ mode }) => {
         ],
         manifest: {
           id: "/",
-          name: "EC Agenda",
-          short_name: "Agenda",
-          description: "Agenda personal con recordatorios y asistente de voz",
+          name: "EC Assistant",
+          short_name: "EC Assistant",
+          description: "Asistente personal con recordatorios y voz",
           lang: "es",
           dir: "ltr",
           start_url: "/",

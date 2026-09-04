@@ -71,7 +71,7 @@ self.addEventListener("push", (event) => {
   } catch {
     data = {}
   }
-  const title = data.title?.trim() || "Agenda"
+  const title = data.title?.trim() || "EC Assistant"
   const options: NotificationOptions = {
     body: data.body?.trim() || "Tienes un recordatorio",
     icon: "/pwa/icon-192x192.jpg",
