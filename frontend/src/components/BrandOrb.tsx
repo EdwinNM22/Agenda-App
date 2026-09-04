@@ -1,44 +1,46 @@
-import Orb from "@/components/Orb"
-import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 
+const ICON_SIZE = {
+  sm: 64,
+  md: 96,
+  lg: 128,
+} as const
+
+const FULL_WIDTH = {
+  sm: 140,
+  md: 180,
+  lg: 240,
+} as const
+
 type BrandOrbProps = {
-  size?: "sm" | "md" | "lg"
+  size?: keyof typeof ICON_SIZE
+  /** Full wordmark on login; compact EC mark on splash. */
+  variant?: "icon" | "full"
   className?: string
 }
 
-const SIZE = {
-  sm: "size-16",
-  md: "size-24",
-  lg: "size-32",
-} as const
+export const BrandOrb = ({ size = "md", variant = "icon", className }: BrandOrbProps) => {
+  if (variant === "full") {
+    return (
+      <img
+        src="/brand/ec-assistant-logo.png"
+        alt="EC Assistant"
+        width={FULL_WIDTH[size]}
+        className={cn("mx-auto h-auto select-none", className)}
+        draggable={false}
+      />
+    )
+  }
 
-export const BrandOrb = ({ size = "md", className }: BrandOrbProps) => {
-  const { theme, wallpaperColor } = useTheme()
-  const backgroundColor =
-    theme === "wallpaper"
-      ? (wallpaperColor ?? "#1c1c1e")
-      : theme === "light"
-        ? "#f4f2f8"
-        : "#0a0a0a"
-
+  const px = ICON_SIZE[size]
   return (
-    <div
-      className={cn(
-        "assistant-orb glass-surface relative overflow-hidden rounded-full border",
-        SIZE[size],
-        className,
-      )}
-    >
-      <div className="assistant-orb-glow size-full">
-        <Orb
-          hue={270}
-          hoverIntensity={0.28}
-          rotateOnHover
-          forceHoverState
-          backgroundColor={backgroundColor}
-        />
-      </div>
-    </div>
+    <img
+      src="/brand/ec-assistant-icon.png"
+      alt="EC Assistant"
+      width={px}
+      height={px}
+      className={cn("mx-auto select-none", className)}
+      draggable={false}
+    />
   )
 }

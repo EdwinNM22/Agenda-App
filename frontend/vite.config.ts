@@ -62,7 +62,14 @@ export default defineConfig(({ mode }) => {
           globIgnores: ["**/node_modules/**/*", "sw.js", "**/*.map"],
           maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         },
-        includeAssets: ["favicon.svg", "apple-touch-icon.jpg", "pwa/**/*.jpg"],
+        includeAssets: [
+          "favicon.png",
+          "favicon-16.png",
+          "favicon-32.png",
+          "apple-touch-icon.jpg",
+          "brand/**/*.png",
+          "pwa/**/*.jpg",
+        ],
         manifest: {
           id: "/",
           name: "EC Agenda",

@@ -1,6 +1,12 @@
-Sustituye estos 4 JPG (mismo nombre y tamaño):
+Regenerar desde ~/Downloads/ec-assistant-logo.png:
 
-  public/apple-touch-icon.jpg           180x180  iOS
-  public/pwa/icon-192x192.jpg           192x192  Android
-  public/pwa/icon-512x512.jpg           512x512  Android
-  public/pwa/maskable-512x512.jpg      512x512  Android (logo al 80% central)
+  python3 frontend/scripts/generate-brand-icons.py
+
+Salida:
+  public/favicon.png, favicon-16/32/48.png
+  public/apple-touch-icon.jpg
+  public/brand/ec-assistant-logo.png   (wordmark login)
+  public/brand/ec-assistant-icon.png   (EC mark cuadrado)
+  public/pwa/icon-192x192.jpg … maskable-512x512.jpg
+
+Ajustes de centrado: NUDGE_X / NUDGE_Y en el script.

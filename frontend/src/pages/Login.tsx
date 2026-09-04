@@ -107,10 +107,9 @@ export const LoginPage = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 160, damping: 20 }}
         >
-          <BrandOrb size="lg" />
-          <p className="mt-6 text-sm font-medium text-muted-foreground">{hello} bienvenido a</p>
-          <h1 className="mt-1 text-4xl font-semibold tracking-tight">EC Agenda</h1>
-          <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+          <p className="text-sm font-medium text-muted-foreground">{hello}, bienvenido</p>
+          <BrandOrb size="lg" variant="full" className="mt-4" />
+          <p className="mt-4 max-w-xs text-sm text-muted-foreground">
             Tu día y tu asistente en un solo lugar.
           </p>
         </motion.div>
