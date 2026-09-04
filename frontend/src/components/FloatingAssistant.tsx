@@ -1,18 +1,16 @@
-import { PhoneOff } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { AssistantOrb } from "@/components/AssistantOrb"
 import { ActivityPill, activityLabel } from "@/components/BusyState"
-import { Button } from "@/components/ui/button"
 import { useVoiceAssistant } from "@/lib/voice-assistant"
 
-const hangUpBottom = "calc(var(--k-safe-area-bottom) + 6.25rem)"
-const orbBottom = "calc(var(--k-safe-area-bottom) + 9.25rem)"
+const orbBottom = "calc(var(--k-safe-area-bottom) + 6.5rem)"
 
+/** Orb + activity cuando la llamada está activa fuera de Home. El colgar vive en la tab bar. */
 export const FloatingAssistant = () => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { status, live, hangUp, activity } = useVoiceAssistant()
+  const { status, live, activity } = useVoiceAssistant()
   const active = live || status === "connecting"
   const onHome = pathname === "/"
   const statusCopy = activityLabel(activity)
@@ -51,31 +49,6 @@ export const FloatingAssistant = () => {
             transition={{ type: "spring", stiffness: 280, damping: 24 }}
           >
             <ActivityPill>{statusCopy}</ActivityPill>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {active ? (
-          <motion.div
-            key="hang-up"
-            className="pointer-events-auto fixed right-4 z-40"
-            style={{ bottom: hangUpBottom }}
-            initial={{ opacity: 0, scale: 0.8, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.86, y: 10 }}
-            transition={{ type: "spring", stiffness: 280, damping: 24 }}
-          >
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon"
-              className="glass-danger size-12 rounded-full border shadow-md"
-              onClick={hangUp}
-              aria-label="Colgar"
-            >
-              <PhoneOff />
-            </Button>
           </motion.div>
         ) : null}
       </AnimatePresence>

@@ -1,13 +1,14 @@
 import type { ReactNode } from "react"
-import { CheckSquare, Home, Settings2 } from "lucide-react"
+import { CheckSquare, Home, PhoneOff, Settings2 } from "lucide-react"
 import { App, Icon, Tabbar, TabbarLink, ToolbarPane } from "konsta/react"
 import { LiquidGlass } from "liquid-glass-backdrop-react"
-import { motion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { FloatingAssistant } from "@/components/FloatingAssistant"
+import { Button } from "@/components/ui/button"
 import { useHideOnScroll } from "@/hooks/useHideOnScroll"
 import { TasksProvider } from "@/lib/tasks-store"
-import { VoiceAssistantProvider } from "@/lib/voice-assistant"
+import { useVoiceAssistant, VoiceAssistantProvider } from "@/lib/voice-assistant"
 import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { HomePage } from "@/pages/Home"
@@ -62,98 +63,135 @@ const TabScreen = ({
   </div>
 )
 
-export const AppShell = () => {
+const ShellChrome = () => {
   const { theme } = useTheme()
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const hidden = useHideOnScroll(pathname)
+  const { status, live, hangUp } = useVoiceAssistant()
+  const callActive = live || status === "connecting"
 
   return (
-    <VoiceAssistantProvider>
-      <TasksProvider>
-        <App
-          theme="ios"
-          dark={theme !== "light"}
-          safeAreas
-          className={cn(
-            "min-h-svh text-foreground",
-            theme === "dark" ? "!bg-transparent" : "bg-background",
-          )}
+    <App
+      theme="ios"
+      dark={theme !== "light"}
+      safeAreas
+      className={cn(
+        "min-h-svh text-foreground",
+        theme === "dark" ? "!bg-transparent" : "bg-background",
+      )}
+    >
+      <div className="relative min-h-svh pb-[calc(var(--k-safe-area-bottom)+6.75rem)]">
+        <TabScreen active={pathname === "/"} fade={theme !== "wallpaper"}>
+          <HomePage />
+        </TabScreen>
+        <TabScreen active={pathname === "/tareas"} fade={theme !== "wallpaper"}>
+          <TasksPage />
+        </TabScreen>
+        <TabScreen
+          active={pathname.startsWith("/opciones") || pathname.startsWith("/perfil")}
+          fade={theme !== "wallpaper"}
         >
-          <div className="relative min-h-svh pb-[calc(var(--k-safe-area-bottom)+6.75rem)]">
-            <TabScreen active={pathname === "/"} fade={theme !== "wallpaper"}>
-              <HomePage />
-            </TabScreen>
-            <TabScreen active={pathname === "/tareas"} fade={theme !== "wallpaper"}>
-              <TasksPage />
-            </TabScreen>
-            <TabScreen
-              active={pathname.startsWith("/opciones") || pathname.startsWith("/perfil")}
-              fade={theme !== "wallpaper"}
-            >
-              <OptionsPage />
-            </TabScreen>
-          </div>
+          <OptionsPage />
+        </TabScreen>
+      </div>
 
-          <FloatingAssistant />
+      <FloatingAssistant />
 
-          <motion.div
-            className="agenda-tabbar-wrap fixed inset-x-0 bottom-0 z-50"
-            animate={{ y: hidden ? "110%" : 0 }}
-            transition={{ type: "spring", stiffness: 320, damping: 34 }}
+      <motion.div
+        className="agenda-tabbar-wrap fixed inset-x-0 bottom-0 z-50"
+        animate={{ y: hidden ? "110%" : 0 }}
+        transition={{ type: "spring", stiffness: 320, damping: 34 }}
+      >
+        <div className="flex items-end gap-2 px-3 pb-[max(0.35rem,var(--k-safe-area-bottom))]">
+          <Tabbar
+            labels
+            icons
+            innerClassName="!h-16"
+            className={cn("agenda-tabbar relative min-w-0 flex-1 !px-2", callActive && "!pr-1")}
           >
-            <Tabbar labels icons innerClassName="!h-16" className="agenda-tabbar relative !px-4">
-              <LiquidGlass
-                variant="surface"
-                surface="convex_squircle"
-                glassThickness={160}
-                refractiveIndex={1.48}
-                refractionScale={0.72}
-                bezelRatio={0.3}
-                bezelMinPx={8}
-                bezelMaxPx={14}
-                blurStdDev={0.4}
-                colorSaturate={1.28}
-                specularOpacity={0.42}
-                specularRimBlur={0.6}
-                className="h-full w-full shadow-ios-light-glass dark:shadow-ios-dark-glass"
+            <LiquidGlass
+              variant="surface"
+              surface="convex_squircle"
+              glassThickness={160}
+              refractiveIndex={1.48}
+              refractionScale={0.72}
+              bezelRatio={0.3}
+              bezelMinPx={8}
+              bezelMaxPx={14}
+              blurStdDev={0.4}
+              colorSaturate={1.28}
+              specularOpacity={0.42}
+              specularRimBlur={0.6}
+              className="h-full w-full shadow-ios-light-glass dark:shadow-ios-dark-glass"
+            >
+              <ToolbarPane className="!bg-transparent !shadow-none !backdrop-blur-none">
+                {tabs.map((tab) => {
+                  const active = tab.match(pathname)
+                  const TabIcon = tab.Icon
+                  return (
+                    <TabbarLink
+                      key={tab.to}
+                      component="button"
+                      className="appearance-none"
+                      active={active}
+                      colors={{
+                        textActiveIos: "text-ios-primary",
+                        textIos: "text-black/45 dark:text-white/45",
+                      }}
+                      onClick={() => navigate(tab.to)}
+                      icon={
+                        <Icon
+                          ios={
+                            <TabIcon
+                              className="h-6 w-6 fill-none"
+                              strokeWidth={active ? 2.4 : 1.8}
+                            />
+                          }
+                        />
+                      }
+                      label={tab.label}
+                      linkProps={{ type: "button" }}
+                    />
+                  )
+                })}
+              </ToolbarPane>
+            </LiquidGlass>
+          </Tabbar>
+
+          <AnimatePresence>
+            {callActive ? (
+              <motion.div
+                key="tabbar-hang-up"
+                className="shrink-0 pb-1"
+                initial={{ opacity: 0, scale: 0.8, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.86, y: 6 }}
+                transition={{ type: "spring", stiffness: 320, damping: 26 }}
               >
-                <ToolbarPane className="!bg-transparent !shadow-none !backdrop-blur-none">
-                  {tabs.map((tab) => {
-                    const active = tab.match(pathname)
-                    const TabIcon = tab.Icon
-                    return (
-                      <TabbarLink
-                        key={tab.to}
-                        component="button"
-                        className="appearance-none"
-                        active={active}
-                        colors={{
-                          textActiveIos: "text-ios-primary",
-                          textIos: "text-black/45 dark:text-white/45",
-                        }}
-                        onClick={() => navigate(tab.to)}
-                        icon={
-                          <Icon
-                            ios={
-                              <TabIcon
-                                className="h-6 w-6 fill-none"
-                                strokeWidth={active ? 2.4 : 1.8}
-                              />
-                            }
-                          />
-                        }
-                        label={tab.label}
-                        linkProps={{ type: "button" }}
-                      />
-                    )
-                  })}
-                </ToolbarPane>
-              </LiquidGlass>
-            </Tabbar>
-          </motion.div>
-        </App>
-      </TasksProvider>
-    </VoiceAssistantProvider>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="glass-danger size-12 rounded-full border shadow-md"
+                  onClick={hangUp}
+                  aria-label="Colgar"
+                >
+                  <PhoneOff />
+                </Button>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </App>
   )
 }
+
+export const AppShell = () => (
+  <VoiceAssistantProvider>
+    <TasksProvider>
+      <ShellChrome />
+    </TasksProvider>
+  </VoiceAssistantProvider>
+)

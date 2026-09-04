@@ -289,6 +289,11 @@ html.wallpaper .assistant-mic {
   color: oklch(from var(--primary) l c h);
 }
 
+.assistant-markdown {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
 .assistant-markdown h2,
 .assistant-markdown h3,
 .assistant-markdown h4,
@@ -321,10 +326,22 @@ html.wallpaper .assistant-mic {
 }
 
 .assistant-markdown table {
-  width: 100%;
+  display: block;
+  width: max-content;
+  max-width: 100%;
   margin-bottom: 0.75rem;
   border-collapse: collapse;
+  overflow-x: auto;
   font-size: 0.8125rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.assistant-markdown thead,
+.assistant-markdown tbody,
+.assistant-markdown tr {
+  display: table;
+  width: 100%;
+  table-layout: auto;
 }
 
 .assistant-markdown th,
@@ -333,11 +350,11 @@ html.wallpaper .assistant-mic {
   border-bottom: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
   text-align: left;
   vertical-align: top;
+  white-space: nowrap;
 }
 
 .assistant-markdown th {
   font-weight: 600;
-  white-space: nowrap;
 }
 
 .assistant-markdown tr:last-child td {

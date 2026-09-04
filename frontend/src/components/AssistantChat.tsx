@@ -122,7 +122,7 @@ const AssistantMessageBubble = () => {
     >
       <MessagePrimitive.Root
         className={cn(
-          "glass-surface max-w-full rounded-[1.35rem] rounded-bl-md border bg-card/92 px-4 py-3.5 shadow-sm backdrop-blur-md",
+          "glass-surface max-w-full min-w-0 overflow-x-auto rounded-[1.35rem] rounded-bl-md border bg-card/92 px-4 py-3.5 shadow-sm backdrop-blur-md",
           running && "assistant-bubble-streaming",
         )}
       >
@@ -237,7 +237,7 @@ export const AssistantChat = ({ className }: { className?: string }) => {
         {live ? <span className="text-[11px] font-medium text-primary">En vivo</span> : null}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-1">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-4">
         {chatEmpty ? (
           <div className="flex flex-1 flex-col justify-end gap-1.5 pb-3">
             {emptyHint?.kind === "error" ? (

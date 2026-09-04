@@ -10,7 +10,9 @@ import {
 } from "@/lib/tasks"
 import { api } from "@/lib/api"
 import { assetUrl } from "@/lib/apiBase"
+import { buildReportFromSession } from "@/lib/buildReportFromSession"
 import { normalizePrestamoParams, resolvePrestamoPeriodPhrase } from "@/lib/prestamoPeriod"
+import { pushSessionToolData } from "@/lib/sessionToolData"
 import { notifyTasksChanged } from "@/lib/taskEvents"
 import { formatToolResultMarkdown } from "@/lib/toolResultMarkdown"
 
@@ -587,9 +589,32 @@ const publishStructuredChat = (
   if (!result) {
     return
   }
+  if (toolName === "list_tasks" || toolName === "query_prestamo") {
+    pushSessionToolData(toolName, result.output)
+  }
   const markdown = formatToolResultMarkdown(toolName, result.output)
   if (markdown) {
     handlers?.onStructuredChat?.(markdown)
+  }
+}
+
+const tryParseToolArgs = (rawArgs: string): Record<string, unknown> | null => {
+  try {
+    const parsed = JSON.parse(rawArgs) as unknown
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null
+  } catch {
+    // A veces el modelo manda JSON casi válido; intentamos el primer objeto {...}
+    const start = rawArgs.indexOf("{")
+    const end = rawArgs.lastIndexOf("}")
+    if (start >= 0 && end > start) {
+      try {
+        const parsed = JSON.parse(rawArgs.slice(start, end + 1)) as unknown
+        return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null
+      } catch {
+        return null
+      }
+    }
+    return null
   }
 }
 
@@ -599,18 +624,39 @@ const runGenerateReportPdf = async (
   rawArgs: string,
   handlers?: RealtimeToolHandlers,
 ): Promise<ToolRunResult> => {
-  let parsed: { report?: unknown; fileName?: unknown }
-  try {
-    parsed = JSON.parse(rawArgs) as { report?: unknown; fileName?: unknown }
-  } catch {
-    return finishTool(channel, callId, { ok: false, message: "No se pudieron leer los datos del reporte" })
+  const parsed = tryParseToolArgs(rawArgs) ?? {}
+
+  const title = typeof parsed.title === "string" ? parsed.title.trim() : undefined
+  const subtitle = typeof parsed.subtitle === "string" ? parsed.subtitle.trim() : undefined
+  const fileName = typeof parsed.fileName === "string" ? parsed.fileName : undefined
+  const sourceRaw = typeof parsed.source === "string" ? parsed.source.trim().toLowerCase() : "last"
+  const source =
+    sourceRaw === "tasks" || sourceRaw === "prestamo" || sourceRaw === "all" || sourceRaw === "last"
+      ? sourceRaw
+      : "last"
+
+  // Preferir datos de la sesión (fiable). Solo usar report embebido si viene completo y válido.
+  const embedded = parsed.report
+  let report: unknown = null
+
+  if (embedded && typeof embedded === "object") {
+    const asReport = embedded as { title?: unknown; sections?: unknown }
+    if (typeof asReport.title === "string" && Array.isArray(asReport.sections) && asReport.sections.length > 0) {
+      report = embedded
+    }
   }
 
-  if (!parsed.report || typeof parsed.report !== "object") {
-    return finishTool(channel, callId, {
-      ok: false,
-      message: "Falta el objeto report con title y sections",
-    })
+  if (!report) {
+    const built = buildReportFromSession({ title, subtitle, source })
+    if ("error" in built) {
+      console.warn("[Isi] generate_report_pdf sin datos de sesión", {
+        argsLen: rawArgs.length,
+        source,
+        message: built.error,
+      })
+      return finishTool(channel, callId, { ok: false, message: built.error })
+    }
+    report = built.report
   }
 
   try {
@@ -624,8 +670,8 @@ const runGenerateReportPdf = async (
     }>("/api/reports/pdf", {
       method: "POST",
       body: JSON.stringify({
-        report: parsed.report,
-        fileName: typeof parsed.fileName === "string" ? parsed.fileName : undefined,
+        report,
+        fileName,
       }),
     })
 
@@ -653,6 +699,7 @@ const runGenerateReportPdf = async (
         "El PDF ya está disponible en el chat del usuario. Confirma breve por voz. No leas el contenido completo del PDF.",
     })
   } catch (error) {
+    console.warn("[Isi] generate_report_pdf API error", error)
     return finishTool(channel, callId, {
       ok: false,
       message: error instanceof Error ? error.message : "No se pudo generar el PDF",

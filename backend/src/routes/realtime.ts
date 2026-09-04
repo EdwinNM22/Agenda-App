@@ -180,19 +180,15 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           "CRÉDITOS Y DESEMBOLSOS: al responder sobre un crédito o desembolso di solo el nombre del cliente (usuario) y el monto (montoDesembolsar o monto); pregunta si quiere más detalle antes de mencionar frecuencia, fechaDesembolsado, totalCuotas, cuotaMensual, cuotasPagadas, cuotasPendientes, cuotasVencidas, montoRealPagado, totalPendiente, totalVencido u otros campos. Si confirma o pregunta algo concreto, entonces detállalo. En listados de varios, nombre y monto de cada uno de forma breve y ofrece profundizar en uno. Para el desglose cuota por cuota consulta creditos o desembolsos con params.id.",
           "Si query_prestamo falla o no hay datos, dilo con claridad. Prohibido decir que no tienes acceso si la tool puede obtener la información.",
 
-          // PANEL DE CHAT (transcripción + datos estructurados por la app)
-          "PANEL DE CHAT: la app muestra la transcripción de tu voz y, tras list_tasks o query_prestamo, inserta sola una tabla o lista Markdown con los datos. Tú resume por voz de forma breve; no dictes tablas ni leas fila por fila salvo que el usuario lo pida.",
-          "Con varios resultados, un resumen hablado basta (totales o hallazgos clave). El detalle tabular ya está en el panel.",
+          // PANEL DE CHAT (transcripción + tablas solo en listados)
+          "PANEL DE CHAT: la app muestra tu transcripción. Solo cuando hay un listado de registros (tareas, cuotas, pagos, ingresos, egresos, clientes, créditos, desembolsos) inserta sola una tabla Markdown. En resúmenes (caja, liquidez, KPIs) o cuando hay pocos datos sin lista, el panel muestra lo que tú digas: narra claro y completo.",
+          "Si la app ya puso una tabla, resume por voz sin dictar filas. Si no hay tabla (p. ej. saldo de caja), tu respuesta hablada es lo que el usuario lee en el chat.",
 
           // REPORTES PDF
-          "REPORTES PDF: tienes la herramienta generate_report_pdf para crear reportes PDF profesionales a partir de información ya obtenida con tus otras herramientas.",
-          "El PDF es un reporte de datos y resultados, NUNCA una transcripción de la conversación. Prohibido incluir diálogos, «usuario dijo», «Isi respondió» o el historial hablado.",
-          "Tú decides de forma autónoma cuándo ofrecer o generar un PDF: si el usuario lo pide explícitamente, si el volumen o la utilidad de conservar/compartir/imprimir la información lo justifican, o si un reporte consolidado aportaría valor. No hay reglas fijas por tipo de consulta.",
-          "Primero obtén los datos con las tools correspondientes; luego construye un report estructurado (título, metadata opcional, sections con components) y llama generate_report_pdf. No inventes filas ni cifras: solo datos confirmados por tools.",
-          "Componentes disponibles en el report: heading, text, note, metrics, table, list, keyValue, status, totals, spacer, divider. Elige la estructura (tablas, listas, métricas, totales, secciones) según los datos; un reporte breve no debe rellenarse artificialmente.",
-          "Si el usuario pide un PDF de «todo lo que consultamos», consolida los resultados relevantes de la sesión en un solo reporte con secciones; no copies el diálogo.",
-          "Cuando ofrezcas un PDF, hazlo de forma natural y breve. Si el usuario acepta o lo pide, genéralo. Tras generate_report_pdf ok, confirma en voz breve que el reporte está listo y disponible en el chat.",
-          "Si generate_report_pdf falla, dilo con claridad. Nunca afirmes que generaste un PDF si la herramienta no lo confirmó.",
+          "REPORTES PDF: tienes generate_report_pdf. NO reconstruyas filas ni pases un report enorme en el JSON: la app ya guardó los datos de list_tasks/query_prestamo de esta sesión.",
+          "Para un PDF tras consultar, llama generate_report_pdf con title (obligatorio) y opcionalmente subtitle, fileName, source. source: last (default), tasks, prestamo o all (todo lo consultado en la sesión).",
+          "El PDF es solo datos/resultados, nunca la conversación. Si piden PDF y aún no hay consulta, consulta primero y luego genera.",
+          "Tras ok, confirma breve que el PDF está en el chat. Si falla, dilo claro.",
         ].join(" "),
         audio: {
           input: {
@@ -389,78 +385,30 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
             type: "function",
             name: "generate_report_pdf",
             description:
-              "Genera un PDF tipo reporte a partir de un documento estructurado (componentes). Úsala cuando el usuario pida un PDF/reporte o cuando tú decidas que conviene conservar los resultados. El PDF debe contener solo datos y resultados de tools, nunca la conversación. Devuelve url y fileName para que el usuario lo abra en el chat.",
+              "Genera un PDF con los datos ya obtenidos en esta sesión (list_tasks o query_prestamo). No reenvíes las filas: la app las toma del caché. Úsala cuando el usuario pida un PDF/reporte. Devuelve url y fileName.",
             parameters: {
               type: "object",
               properties: {
+                title: {
+                  type: "string",
+                  description: "Título del reporte. Ejemplo: Cuotas de hoy.",
+                },
+                subtitle: {
+                  type: "string",
+                  description: "Subtítulo opcional.",
+                },
                 fileName: {
                   type: "string",
-                  description:
-                    "Nombre de archivo opcional (sin o con .pdf). Ejemplo: tareas-hoy.pdf",
+                  description: "Nombre de archivo opcional, con o sin .pdf.",
                 },
-                report: {
-                  type: "object",
+                source: {
+                  type: "string",
+                  enum: ["last", "tasks", "prestamo", "all"],
                   description:
-                    "Documento del reporte. title obligatorio; sections con components. Tipos de component: heading, text, note, metrics, table, list, keyValue, status, totals, spacer, divider.",
-                  properties: {
-                    title: { type: "string", description: "Título del reporte." },
-                    subtitle: { type: "string", description: "Subtítulo opcional." },
-                    metadata: {
-                      type: "array",
-                      description: "Pares label/value (fecha, período, etc.).",
-                      items: {
-                        type: "object",
-                        properties: {
-                          label: { type: "string" },
-                          value: { type: "string" },
-                        },
-                        required: ["label", "value"],
-                      },
-                    },
-                    sections: {
-                      type: "array",
-                      description: "Secciones del reporte, cada una con title opcional y components.",
-                      items: {
-                        type: "object",
-                        properties: {
-                          title: { type: "string" },
-                          components: {
-                            type: "array",
-                            description:
-                              "Componentes. Cada uno necesita type. metrics: {type,items:[{label,value,hint?}]}. table: {type,columns:[{key,label,align?,width?}],rows:[{key:value}]}. list: {type,style?:bullet|numbered,items:string[]}. keyValue: {type,title?,pairs:[{label,value}]}. status: {type,label,value,tone?:ok|warn|danger|neutral}. totals: {type,rows:[{label,value}]}. heading/text/note: {type,text,level?}. spacer: {type,size?:sm|md|lg}. divider: {type}.",
-                            items: {
-                              type: "object",
-                              additionalProperties: true,
-                              properties: {
-                                type: {
-                                  type: "string",
-                                  enum: [
-                                    "heading",
-                                    "text",
-                                    "note",
-                                    "metrics",
-                                    "table",
-                                    "list",
-                                    "keyValue",
-                                    "status",
-                                    "totals",
-                                    "spacer",
-                                    "divider",
-                                  ],
-                                },
-                              },
-                              required: ["type"],
-                            },
-                          },
-                        },
-                        required: ["components"],
-                      },
-                    },
-                  },
-                  required: ["title", "sections"],
+                    "De dónde sacar los datos: last (última consulta, default), tasks, prestamo (Atlas) o all (consolidado de la sesión).",
                 },
               },
-              required: ["report"],
+              required: ["title"],
             },
           },
           {

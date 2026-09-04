@@ -1,5 +1,14 @@
+/**
+ * Política: el frontend solo pinta Markdown cuando hay un **listado de registros**
+ * (filas tabulares). Resúmenes / KPIs / objetos escalares → null y habla Isi en el chat.
+ *
+ * - list_tasks con ≥1 tarea → tabla/lista
+ * - query_prestamo de recursos de lista (cuotas, pagos, …) con ≥1 fila → tabla
+ * - caja-chica, liquidez, resumen, etc. → null (respuesta de Isi)
+ * - sin filas o sin columnas conocidas → null
+ */
+
 const MAX_ROWS = 25
-const MAX_LIST = 12
 
 const cell = (value: unknown): string => {
   if (value === null || value === undefined || value === "") {
@@ -36,17 +45,12 @@ const asObjectRows = (value: unknown): Array<Record<string, unknown>> => {
   return value.filter((item): item is Record<string, unknown> => Boolean(asRecord(item)))
 }
 
+/** Solo columnas con etiqueta humana conocida; nunca claves crudas del API. */
 const pickColumns = (
   rows: Array<Record<string, unknown>>,
   preferred: Array<{ key: string; label: string }>,
-): Array<{ key: string; label: string }> => {
-  const present = preferred.filter((column) => rows.some((row) => row[column.key] !== undefined))
-  if (present.length > 0) {
-    return present.slice(0, 6)
-  }
-  const keys = Object.keys(rows[0] ?? {}).filter((key) => !key.startsWith("_")).slice(0, 5)
-  return keys.map((key) => ({ key, label: key }))
-}
+): Array<{ key: string; label: string }> =>
+  preferred.filter((column) => rows.some((row) => row[column.key] !== undefined)).slice(0, 6)
 
 const formatRows = (
   title: string,
@@ -54,21 +58,23 @@ const formatRows = (
   preferred: Array<{ key: string; label: string }>,
 ): string | null => {
   if (rows.length === 0) {
-    return `## ${title}\n\nSin resultados.`
+    return null
   }
 
   const limited = rows.slice(0, MAX_ROWS)
   const columns = pickColumns(limited, preferred)
+  if (columns.length === 0) {
+    return null
+  }
 
-  if (limited.length === 1 && columns.length <= 4) {
+  if (limited.length === 1) {
     const row = limited[0]
     const lines = columns.map((column) => `- **${column.label}:** ${cell(row[column.key])}`)
     return `## ${title}\n\n${lines.join("\n")}`
   }
 
   const table = markdownTable(columns, limited)
-  const extra =
-    rows.length > MAX_ROWS ? `\n\n_Mostrando ${MAX_ROWS} de ${rows.length}._` : ""
+  const extra = rows.length > MAX_ROWS ? `\n\n_Mostrando ${MAX_ROWS} de ${rows.length}._` : ""
   return `## ${title}\n\n${table}${extra}`
 }
 
@@ -84,14 +90,13 @@ const formatListTasks = (output: Record<string, unknown>): string | null => {
   }
   const rows = asObjectRows(output.tasks).map((task) => ({
     ...task,
-    title: task.title,
-    dueAt: task.dueAt,
     statusLabel: task.statusLabel ?? task.status,
   }))
   return formatRows("Tareas", rows, TASK_COLUMNS)
 }
 
-const PRESTAMO_LIST_KEYS: Record<string, { title: string; keys: string[] }> = {
+/** Recursos que son listados de filas → candidatos a tabla en el chat. */
+const PRESTAMO_LIST_RESOURCES: Record<string, { title: string; keys: string[] }> = {
   cuotas: { title: "Cuotas", keys: ["cuotas", "data", "items"] },
   "cuotas-vencidas": { title: "Cuotas vencidas", keys: ["cuotas", "cuotasVencidas", "data", "items"] },
   pagos: { title: "Pagos", keys: ["pagos", "data", "items"] },
@@ -101,6 +106,14 @@ const PRESTAMO_LIST_KEYS: Record<string, { title: string; keys: string[] }> = {
   creditos: { title: "Créditos", keys: ["creditos", "data", "items"] },
   clientes: { title: "Clientes", keys: ["clientes", "data", "items"] },
 }
+
+/** Resúmenes / KPIs: no pintar Markdown; que Isi narre y salga en el chat. */
+const PRESTAMO_SUMMARY_RESOURCES = new Set([
+  "caja-chica",
+  "caja-chica-detalle",
+  "liquidez",
+  "resumen",
+])
 
 const PRESTAMO_COLUMNS: Array<{ key: string; label: string }> = [
   { key: "clienteNombre", label: "Cliente" },
@@ -123,7 +136,7 @@ const PRESTAMO_COLUMNS: Array<{ key: string; label: string }> = [
   { key: "telefono", label: "Teléfono" },
 ]
 
-const findFirstArray = (
+const findListRows = (
   data: Record<string, unknown>,
   keys: string[],
 ): Array<Record<string, unknown>> => {
@@ -133,51 +146,7 @@ const findFirstArray = (
       return rows
     }
   }
-  for (const value of Object.values(data)) {
-    const rows = asObjectRows(value)
-    if (rows.length >= 2) {
-      return rows
-    }
-  }
   return []
-}
-
-const formatScalarObject = (title: string, data: Record<string, unknown>): string | null => {
-  const skip = new Set([
-    "ok",
-    "instruccion",
-    "periodoConsultado",
-    "resource",
-    "message",
-    "cuotas",
-    "pagos",
-    "ingresos",
-    "egresos",
-    "clientes",
-    "creditos",
-    "desembolsos",
-  ])
-  const entries = Object.entries(data).filter(([key, value]) => {
-    if (skip.has(key) || key.startsWith("_")) {
-      return false
-    }
-    if (value === null || value === undefined) {
-      return false
-    }
-    if (typeof value === "object") {
-      return false
-    }
-    return true
-  })
-
-  if (entries.length === 0) {
-    return null
-  }
-
-  const lines = entries
-    .slice(0, MAX_LIST)
-    .map(([key, value]) => `- **${key}:** ${cell(value)}`)
-  return `## ${title}\n\n${lines.join("\n")}`
 }
 
 const formatQueryPrestamo = (output: Record<string, unknown>): string | null => {
@@ -186,19 +155,21 @@ const formatQueryPrestamo = (output: Record<string, unknown>): string | null => 
   }
 
   const resource = typeof output.resource === "string" ? output.resource : ""
-  const data = asRecord(output.data) ?? output
-  const config = PRESTAMO_LIST_KEYS[resource]
-  const title = config?.title ?? (resource ? resource.replace(/-/g, " ") : "Atlas")
-  const rows = findFirstArray(data, config?.keys ?? ["data", "items"])
-
-  if (rows.length > 0) {
-    return formatRows(title.charAt(0).toUpperCase() + title.slice(1), rows, PRESTAMO_COLUMNS)
+  if (!resource || PRESTAMO_SUMMARY_RESOURCES.has(resource)) {
+    return null
   }
 
-  return formatScalarObject(title.charAt(0).toUpperCase() + title.slice(1), data)
+  const config = PRESTAMO_LIST_RESOURCES[resource]
+  if (!config) {
+    return null
+  }
+
+  const data = asRecord(output.data) ?? output
+  const rows = findListRows(data, config.keys)
+  return formatRows(config.title, rows, PRESTAMO_COLUMNS)
 }
 
-/** Convierte el resultado de una tool a Markdown para el panel de chat. Null = no mostrar tarjeta. */
+/** Null = no tarjeta: el chat muestra la respuesta hablada de Isi. */
 export const formatToolResultMarkdown = (
   toolName: string,
   output: Record<string, unknown> | undefined,

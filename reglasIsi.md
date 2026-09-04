@@ -62,7 +62,9 @@ Documento de referencia con **todas las reglas vigentes** del asistente.
 
 - Debajo del orbe hay un panel de solo lectura.
 - La **voz** se muestra como transcripción.
-- Tras `list_tasks` o `query_prestamo`, la **app** inserta en el chat una tarjeta Markdown (tabla o lista) con los datos de la tool. Isi no tiene que dictar tablas: resume por voz; el panel ya muestra la estructura.
+- El frontend solo inserta Markdown (tabla/lista) cuando hay un **listado de registros** (`list_tasks` o recursos Atlas de lista: cuotas, pagos, ingresos, etc.) con filas y columnas conocidas.
+- Resúmenes / KPIs (caja-chica, liquidez, resumen, etc.) o consultas sin filas: **no** hay tarjeta; se muestra la respuesta de Isi.
+- Si hubo tabla, no se duplica la transcripción de esa misma respuesta.
 
 ### 1.7 Saludo inicial (código cliente)
 
@@ -332,28 +334,19 @@ No hay lista hardcodeada del tipo «si pregunta por X → ofrecer PDF».
 
 ### 5.3 Flujo
 
-1. Obtener datos con las tools de datos.
-2. Analizar qué incluir / excluir y qué estructura usar.
-3. Construir un `report` estructurado y llamar `generate_report_pdf`.
-4. Confirmar breve por voz; el archivo aparece en el panel de chat (Abrir / Descargar).
+1. Obtener datos con `list_tasks` / `query_prestamo`. La app **cachea** esos resultados en la sesión.
+2. Llamar `generate_report_pdf` con `title` (opcional: `subtitle`, `fileName`, `source`).
+3. La app arma el PDF desde el caché (Isi **no** reenvía las filas en el JSON de la tool).
+4. Confirmar breve por voz; el archivo aparece en el chat.
 
-### 5.4 Estructura del `report`
+`source`: `last` (default), `tasks`, `prestamo`, `all` (consolidado de la sesión).
 
-| Campo | Uso |
-| --- | --- |
-| `title` | Título del documento (obligatorio) |
-| `subtitle` | Subtítulo opcional |
-| `metadata` | Pares label/value (fecha, período, etc.) |
-| `sections[]` | Secciones con `title?` y `components[]` |
+No pasar un objeto `report` enorme en la tool: en Realtime el JSON se rompe y falla (sobre todo en producción).
 
-**Componentes** (`type`): `heading`, `text`, `note`, `metrics`, `table`, `list`, `keyValue`, `status`, `totals`, `spacer`, `divider`.
-
-Isi elige tablas, listas, métricas, totales y secciones según los datos. Un reporte breve no debe rellenarse artificialmente.
-
-### 5.5 Entrega
+### 5.4 Entrega
 
 - Backend: `POST /api/reports/pdf` → PDF en `uploads/reports/`.
-- Cliente: tool `generate_report_pdf` + tarjeta en el chat.
+- Cliente: arma el reporte desde el caché de sesión + tarjeta en el chat.
 - Tras éxito: confirmar que el reporte está listo. Si falla: decirlo; no afirmar que se generó.
 
 ---

@@ -9,6 +9,7 @@ import {
 import { api } from "@/lib/api"
 import { handleAssistantChatEvent } from "@/lib/assistantChatEvents"
 import { handleRealtimeToolEvent } from "@/lib/realtimeTools"
+import { clearSessionToolData } from "@/lib/sessionToolData"
 import { useAssistantChatMessages } from "@/hooks/useAssistantChatMessages"
 import { isHangupCommand } from "@/lib/voiceCommands"
 import type { RealtimeVoice } from "@/lib/voices"
@@ -213,6 +214,7 @@ export const useRealtimeVoice = () => {
     isiSpeakingRef.current = false
     lastUserTranscriptRef.current = ""
     toolsRef.current = []
+    clearSessionToolData()
     window.clearTimeout(isiQuietTimerRef.current)
     window.clearTimeout(awaitingTimerRef.current)
     setHearingUser(false)
