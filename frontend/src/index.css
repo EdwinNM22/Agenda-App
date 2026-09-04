@@ -152,7 +152,11 @@ html.dark:not(.wallpaper) .k-app {
   --k-safe-area-right: env(safe-area-inset-right, 0px);
   --k-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --k-safe-area-left: env(safe-area-inset-left, 0px);
+  /* Tab bar (h-16) + márgenes + home indicator — una sola fuente de verdad */
+  --agenda-tabbar-offset: calc(var(--k-safe-area-bottom) + 5.75rem);
   --keyboard-inset: 0px;
+  /* Altura útil de Home: viewport completo menos tab bar (sin restar safe-top otra vez) */
+  --agenda-home-height: calc(100dvh - var(--agenda-tabbar-offset) - var(--keyboard-inset));
 }
 
 html,
@@ -180,6 +184,12 @@ html.pwa-standalone body,
 html.pwa-standalone #root {
   min-height: 100%;
   min-height: 100dvh;
+}
+
+/* Home a altura fija del viewport útil; solo el panel de chat hace scroll */
+.agenda-home {
+  height: var(--agenda-home-height);
+  max-height: var(--agenda-home-height);
 }
 
 html.pwa-ios {
@@ -325,23 +335,30 @@ html.wallpaper .assistant-mic {
   padding-left: 1.25rem;
 }
 
+/* Scroll horizontal solo en la tabla, sin clipar la burbuja entera */
+.assistant-markdown .table-wrap,
 .assistant-markdown table {
-  display: block;
-  width: max-content;
   max-width: 100%;
-  margin-bottom: 0.75rem;
-  border-collapse: collapse;
-  overflow-x: auto;
-  font-size: 0.8125rem;
-  -webkit-overflow-scrolling: touch;
 }
 
-.assistant-markdown thead,
-.assistant-markdown tbody,
-.assistant-markdown tr {
-  display: table;
+.assistant-markdown table {
   width: 100%;
-  table-layout: auto;
+  margin-bottom: 0.75rem;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+@supports (overflow: clip) {
+  .assistant-markdown {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .assistant-markdown table {
+    width: max-content;
+    min-width: 100%;
+  }
 }
 
 .assistant-markdown th,

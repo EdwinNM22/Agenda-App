@@ -122,7 +122,7 @@ const AssistantMessageBubble = () => {
     >
       <MessagePrimitive.Root
         className={cn(
-          "glass-surface max-w-full min-w-0 overflow-x-auto rounded-[1.35rem] rounded-bl-md border bg-card/92 px-4 py-3.5 shadow-sm backdrop-blur-md",
+          "glass-surface max-w-full min-w-0 rounded-[1.35rem] rounded-bl-md border bg-card/92 px-4 py-3.5 shadow-sm backdrop-blur-md",
           running && "assistant-bubble-streaming",
         )}
       >
@@ -229,15 +229,15 @@ export const AssistantChat = ({ className }: { className?: string }) => {
   }, [messages, waitingForSpeech, activity, emptyHint])
 
   return (
-    <section className={cn("flex min-h-0 flex-1 flex-col px-5 pt-1.5 pb-1", className)}>
-      <div className="mb-2 flex items-center justify-between">
+    <section className={cn("flex min-h-0 flex-1 flex-col px-5 pt-1.5", className)}>
+      <div className="mb-2 flex shrink-0 items-center justify-between">
         <p className="text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">
           Respuestas
         </p>
         {live ? <span className="text-[11px] font-medium text-primary">En vivo</span> : null}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto overscroll-contain pb-6">
         {chatEmpty ? (
           <div className="flex flex-1 flex-col justify-end gap-1.5 pb-3">
             {emptyHint?.kind === "error" ? (
@@ -274,7 +274,7 @@ export const AssistantChat = ({ className }: { className?: string }) => {
           </StatusBubble>
         ) : null}
 
-        <div ref={endRef} className="h-px shrink-0" aria-hidden />
+        <div ref={endRef} className="h-4 shrink-0" aria-hidden />
       </div>
 
       <TaskPdfViewer file={pdfFile} onClose={() => setPdfFile(null)} />
