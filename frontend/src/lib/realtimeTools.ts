@@ -590,6 +590,8 @@ const slimBancoMovimiento = (item: unknown): Record<string, unknown> | unknown =
   const source = item as Record<string, unknown>
   return {
     id: source.id,
+    userId: source.userId,
+    registradoPor: source.registradoPor,
     tipo: source.tipo,
     monto: source.monto,
     motivo:

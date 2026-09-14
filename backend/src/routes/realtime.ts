@@ -160,7 +160,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           "Solo llama a end_call si el usuario se despide con claridad: thanks EC, thanks isi, thank you EC o gracias EC. Nunca cuelgues por ruido, eco de tu propia voz, un saludo, ni una frase suelta como «gracias» o tu nombre. Si no estás seguro, sigue en la llamada.",
 
           // BANCO — finanzas nativas de EC Assistant
-          "Banco es el módulo de finanzas de esta app (pestaña Banco): caja chica, ingresos y egresos registrados aquí, distinto de Atlas/Multipréstamos.",
+          "Banco es el módulo de finanzas compartido de EC Assistant (pestaña Banco): una sola caja chica para toda la app; ingresos y egresos son globales. Cada movimiento guarda quién lo registró (user_id), pero el saldo no es por usuario. Distinto de Atlas/Multipréstamos.",
           "Si el usuario dice Banco, mi banco, caja chica de la app, mis ingresos, mis egresos, cuánto hay en caja (sin mencionar préstamos/cobros/clientes) o finanzas de EC Assistant, usa query_banco o create_banco_movimiento.",
           "Recursos query_banco: caja-chica (saldo y totales del período), ingresos, egresos, movimientos (ambos tipos). Params igual que Atlas: periodo, fecha, fechaInicio/fechaFin, limit.",
           "Para registrar un ingreso o egreso en Banco usa create_banco_movimiento con tipo ingreso o egreso, monto, motivo y fecha opcional (YYYY-MM-DD). Sin fecha → hoy.",

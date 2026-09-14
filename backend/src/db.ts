@@ -386,6 +386,8 @@ export type BancoMovimientoRow = RowDataPacket & {
 
 export type PublicBancoMovimiento = {
   id: number
+  userId: number
+  registradoPor: string
   tipo: BancoTipo
   monto: number
   motivo: string
@@ -425,8 +427,12 @@ const formatBancoFecha = (value: string | Date): string => {
   return value.slice(0, 10)
 }
 
-export const toPublicBancoMovimiento = (row: BancoMovimientoRow): PublicBancoMovimiento => ({
+export const toPublicBancoMovimiento = (
+  row: BancoMovimientoRow & { user_name?: string | null },
+): PublicBancoMovimiento => ({
   id: row.id,
+  userId: row.user_id,
+  registradoPor: row.user_name?.trim() || "Usuario",
   tipo: row.tipo,
   monto: Number(row.monto),
   motivo: row.motivo,

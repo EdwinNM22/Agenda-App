@@ -276,6 +276,7 @@ export const BancoPage = () => {
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {formatBancoDate(movimiento.fecha)}
+                    {movimiento.registradoPor ? ` · ${movimiento.registradoPor}` : ""}
                   </p>
                 </div>
               </button>

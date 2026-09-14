@@ -4,6 +4,8 @@ export type BancoTipo = "ingreso" | "egreso"
 
 export type BancoMovimiento = {
   id: number
+  userId: number
+  registradoPor: string
   tipo: BancoTipo
   monto: number
   motivo: string

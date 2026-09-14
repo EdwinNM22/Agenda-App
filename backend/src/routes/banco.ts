@@ -22,7 +22,11 @@ type MovimientoParams = {
   id: string
 }
 
-const MOVIMIENTO_COLUMNS = "id, user_id, tipo, monto, motivo, fecha, created_at"
+type BancoMovimientoWithUser = BancoMovimientoRow & { user_name: string | null }
+
+const MOVIMIENTO_SELECT = `
+  m.id, m.user_id, m.tipo, m.monto, m.motivo, m.fecha, m.created_at, u.name AS user_name
+`
 
 const parseMovimientoId = (raw: string): number | null => {
   const id = Number(raw)
@@ -46,24 +50,26 @@ const parseOptionalDate = (value: unknown): string | null => {
   return parseBancoFecha(value)
 }
 
-const findOwnMovimiento = async (id: number, userId: number) => {
-  const [rows] = await pool.query<BancoMovimientoRow[]>(
-    `SELECT ${MOVIMIENTO_COLUMNS} FROM banco_movimientos WHERE id = :id AND user_id = :userId LIMIT 1`,
-    { id, userId },
+const findMovimiento = async (id: number) => {
+  const [rows] = await pool.query<BancoMovimientoWithUser[]>(
+    `SELECT ${MOVIMIENTO_SELECT}
+     FROM banco_movimientos m
+     INNER JOIN users u ON u.id = m.user_id
+     WHERE m.id = :id
+     LIMIT 1`,
+    { id },
   )
   return rows[0] ?? null
 }
 
-const getBalance = async (userId: number) => {
+const getBalance = async () => {
   const [rows] = await pool.query<
     (RowDataPacket & { ingresos: string | null; egresos: string | null })[]
   >(
     `SELECT
        COALESCE(SUM(CASE WHEN tipo = 'ingreso' THEN monto END), 0) AS ingresos,
        COALESCE(SUM(CASE WHEN tipo = 'egreso' THEN monto END), 0) AS egresos
-     FROM banco_movimientos
-     WHERE user_id = :userId`,
-    { userId },
+     FROM banco_movimientos`,
   )
   const ingresos = Number(rows[0]?.ingresos ?? 0)
   const egresos = Number(rows[0]?.egresos ?? 0)
@@ -74,7 +80,7 @@ const getBalance = async (userId: number) => {
   }
 }
 
-const getPeriodTotals = async (userId: number, from: string, to: string) => {
+const getPeriodTotals = async (from: string, to: string) => {
   const [rows] = await pool.query<
     (RowDataPacket & { ingresos: string | null; egresos: string | null })[]
   >(
@@ -82,8 +88,8 @@ const getPeriodTotals = async (userId: number, from: string, to: string) => {
        COALESCE(SUM(CASE WHEN tipo = 'ingreso' THEN monto END), 0) AS ingresos,
        COALESCE(SUM(CASE WHEN tipo = 'egreso' THEN monto END), 0) AS egresos
      FROM banco_movimientos
-     WHERE user_id = :userId AND fecha BETWEEN :from AND :to`,
-    { userId, from, to },
+     WHERE fecha BETWEEN :from AND :to`,
+    { from, to },
   )
   return {
     ingresos: Number(rows[0]?.ingresos ?? 0),
@@ -122,8 +128,8 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
       const period = monthRange()
       const from = parseOptionalDate(query.from) ?? period.from
       const to = parseOptionalDate(query.to) ?? period.to
-      const balance = await getBalance(request.user.sub)
-      const periodTotals = await getPeriodTotals(request.user.sub, from, to)
+      const balance = await getBalance()
+      const periodTotals = await getPeriodTotals(from, to)
 
       return {
         cajaChica: balance.cajaChica,
@@ -159,27 +165,30 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
       const limitRaw = Number(query.limit ?? 100)
       const limit = Number.isInteger(limitRaw) ? Math.min(Math.max(limitRaw, 1), 500) : 100
 
-      const conditions = ["user_id = :userId"]
-      const params: Record<string, string | number> = { userId: request.user.sub, limit }
+      const conditions: string[] = []
+      const params: Record<string, string | number> = { limit }
 
       if (tipo) {
-        conditions.push("tipo = :tipo")
+        conditions.push("m.tipo = :tipo")
         params.tipo = tipo
       }
       if (from) {
-        conditions.push("fecha >= :from")
+        conditions.push("m.fecha >= :from")
         params.from = from
       }
       if (to) {
-        conditions.push("fecha <= :to")
+        conditions.push("m.fecha <= :to")
         params.to = to
       }
 
-      const [rows] = await pool.query<BancoMovimientoRow[]>(
-        `SELECT ${MOVIMIENTO_COLUMNS}
-         FROM banco_movimientos
-         WHERE ${conditions.join(" AND ")}
-         ORDER BY fecha DESC, id DESC
+      const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
+
+      const [rows] = await pool.query<BancoMovimientoWithUser[]>(
+        `SELECT ${MOVIMIENTO_SELECT}
+         FROM banco_movimientos m
+         INNER JOIN users u ON u.id = m.user_id
+         ${where}
+         ORDER BY m.fecha DESC, m.id DESC
          LIMIT :limit`,
         params,
       )
@@ -198,7 +207,7 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
       }
 
       if (parsed.tipo === "egreso") {
-        const balance = await getBalance(request.user.sub)
+        const balance = await getBalance()
         if (parsed.monto > balance.cajaChica) {
           return reply.code(400).send({
             message: "No hay suficiente saldo en caja chica para este egreso.",
@@ -218,7 +227,7 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
         },
       )
 
-      const movimiento = await findOwnMovimiento(result.insertId, request.user.sub)
+      const movimiento = await findMovimiento(result.insertId)
       if (!movimiento) {
         return reply.code(500).send({ message: "No se pudo registrar el movimiento." })
       }
@@ -247,7 +256,7 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
         },
       )
 
-      const movimiento = await findOwnMovimiento(result.insertId, request.user.sub)
+      const movimiento = await findMovimiento(result.insertId)
       if (!movimiento) {
         return reply.code(500).send({ message: "No se pudo registrar el ingreso." })
       }
@@ -265,7 +274,7 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
         return reply.code(400).send({ message: parsed.error })
       }
 
-      const balance = await getBalance(request.user.sub)
+      const balance = await getBalance()
       if (parsed.monto > balance.cajaChica) {
         return reply.code(400).send({
           message: "No hay suficiente saldo en caja chica para este egreso.",
@@ -283,7 +292,7 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
         },
       )
 
-      const movimiento = await findOwnMovimiento(result.insertId, request.user.sub)
+      const movimiento = await findMovimiento(result.insertId)
       if (!movimiento) {
         return reply.code(500).send({ message: "No se pudo registrar el egreso." })
       }
@@ -301,7 +310,7 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
         return reply.code(400).send({ message: "Movimiento inválido." })
       }
 
-      const existing = await findOwnMovimiento(id, request.user.sub)
+      const existing = await findMovimiento(id)
       if (!existing) {
         return reply.code(404).send({ message: "Movimiento no encontrado." })
       }
@@ -330,7 +339,7 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
         return reply.code(400).send({ message: "Fecha inválida." })
       }
 
-      const balance = await getBalance(request.user.sub)
+      const balance = await getBalance()
       const delta =
         existing.tipo === "ingreso" ? -Number(existing.monto) : Number(existing.monto)
       const projected = balance.cajaChica + delta + (existing.tipo === "ingreso" ? monto : -monto)
@@ -343,11 +352,11 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
       await pool.query(
         `UPDATE banco_movimientos
          SET monto = :monto, motivo = :motivo, fecha = :fecha
-         WHERE id = :id AND user_id = :userId`,
-        { id, userId: request.user.sub, monto, motivo, fecha },
+         WHERE id = :id`,
+        { id, monto, motivo, fecha },
       )
 
-      const movimiento = await findOwnMovimiento(id, request.user.sub)
+      const movimiento = await findMovimiento(id)
       return { movimiento: movimiento ? toPublicBancoMovimiento(movimiento) : null }
     },
   )
@@ -361,13 +370,13 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
         return reply.code(400).send({ message: "Movimiento inválido." })
       }
 
-      const existing = await findOwnMovimiento(id, request.user.sub)
+      const existing = await findMovimiento(id)
       if (!existing) {
         return reply.code(404).send({ message: "Movimiento no encontrado." })
       }
 
       if (existing.tipo === "ingreso") {
-        const balance = await getBalance(request.user.sub)
+        const balance = await getBalance()
         if (Number(existing.monto) > balance.cajaChica) {
           return reply.code(400).send({
             message: "No se puede eliminar este ingreso porque el saldo ya fue utilizado.",
@@ -375,10 +384,7 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
         }
       }
 
-      await pool.query("DELETE FROM banco_movimientos WHERE id = :id AND user_id = :userId", {
-        id,
-        userId: request.user.sub,
-      })
+      await pool.query("DELETE FROM banco_movimientos WHERE id = :id", { id })
 
       return { ok: true }
     },
