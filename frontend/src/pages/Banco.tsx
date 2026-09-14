@@ -1,25 +1,28 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react"
 import {
+  AlignLeft,
   ArrowDownCircle,
   ArrowUpCircle,
+  Building2,
+  CalendarClock,
+  CircleDollarSign,
   Loader2,
   Minus,
   Plus,
   Trash2,
   Wallet,
 } from "lucide-react"
+import { FieldLabel } from "@/components/FieldLabel"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -37,9 +40,11 @@ import {
   deleteBancoMovimiento,
   fetchBancoMovimientos,
   fetchBancoResumen,
+  defaultBancoDatetimeLocalValue,
   formatBancoDate,
   formatCurrency,
-  todayIsoDate,
+  fromBancoDatetimeLocalValue,
+  toBancoDatetimeLocalValue,
   updateBancoMovimiento,
 } from "@/lib/banco"
 import { cn } from "@/lib/utils"
@@ -56,7 +61,7 @@ const emptyForm = () => ({
   monto: "",
   motivo: "",
   destino: "" as BancoDestino | "",
-  fecha: todayIsoDate(),
+  fecha: defaultBancoDatetimeLocalValue(),
 })
 
 const isEgresoForm = (mode: FormMode, editing: BancoMovimiento | null) =>
@@ -71,6 +76,7 @@ export const BancoPage = () => {
   const [formMode, setFormMode] = useState<FormMode>(null)
   const [editing, setEditing] = useState<BancoMovimiento | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const reload = useCallback(async () => {
@@ -103,17 +109,19 @@ export const BancoPage = () => {
   const openCreate = (mode: BancoTipo) => {
     setEditing(null)
     setForm(emptyForm())
+    setFormError(null)
     setFormMode(mode)
   }
 
   const openEdit = (movimiento: BancoMovimiento) => {
     setEditing(movimiento)
     setFormMode(movimiento.tipo)
+    setFormError(null)
     setForm({
       monto: String(movimiento.monto),
       motivo: movimiento.motivo,
       destino: movimiento.destino ?? "",
-      fecha: movimiento.fecha,
+      fecha: toBancoDatetimeLocalValue(movimiento.fecha),
     })
   }
 
@@ -124,32 +132,33 @@ export const BancoPage = () => {
     setFormMode(null)
     setEditing(null)
     setForm(emptyForm())
+    setFormError(null)
   }
 
   const handleSubmit = async (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault()
     const monto = Number(form.monto)
     if (!Number.isFinite(monto) || monto <= 0) {
-      setError("El monto debe ser mayor a cero.")
+      setFormError("El monto debe ser mayor a cero.")
       return
     }
     if (!form.motivo.trim()) {
-      setError("El motivo es obligatorio.")
+      setFormError("El motivo es obligatorio.")
       return
     }
     const needsDestino = isEgresoForm(formMode, editing)
     if (needsDestino && !form.destino) {
-      setError("Selecciona el destino del egreso.")
+      setFormError("Selecciona el destino del egreso.")
       return
     }
 
     setSaving(true)
-    setError(null)
+    setFormError(null)
     try {
       const body = {
         monto,
         motivo: form.motivo.trim(),
-        fecha: form.fecha,
+        fecha: fromBancoDatetimeLocalValue(form.fecha),
         ...(needsDestino ? { destino: form.destino as BancoDestino } : {}),
       }
       if (editing) {
@@ -162,7 +171,7 @@ export const BancoPage = () => {
       closeForm()
       await reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar")
+      setFormError(err instanceof Error ? err.message : "No se pudo guardar")
     } finally {
       setSaving(false)
     }
@@ -325,12 +334,13 @@ export const BancoPage = () => {
                     ? "Nuevo ingreso"
                     : "Nuevo egreso"}
               </SheetTitle>
-              <SheetDescription>Registra un movimiento en la caja chica.</SheetDescription>
             </SheetHeader>
 
             <div className="grid gap-4 px-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="banco-monto">Monto</Label>
+                <FieldLabel htmlFor="banco-monto" icon={CircleDollarSign}>
+                  Monto
+                </FieldLabel>
                 <Input
                   id="banco-monto"
                   type="number"
@@ -344,28 +354,34 @@ export const BancoPage = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="banco-fecha">Fecha</Label>
-                <Input
-                  id="banco-fecha"
-                  type="date"
-                  value={form.fecha}
-                  onChange={(event) => setForm((prev) => ({ ...prev, fecha: event.target.value }))}
-                  className="h-11"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="banco-motivo">Motivo</Label>
+                <FieldLabel htmlFor="banco-motivo" icon={AlignLeft}>
+                  Motivo
+                </FieldLabel>
                 <Textarea
                   id="banco-motivo"
                   value={form.motivo}
                   onChange={(event) => setForm((prev) => ({ ...prev, motivo: event.target.value }))}
                   placeholder="Describe el movimiento"
-                  rows={3}
+                  rows={4}
+                />
+              </div>
+              <div className="grid gap-2">
+                <FieldLabel htmlFor="banco-fecha" icon={CalendarClock}>
+                  Fecha y hora
+                </FieldLabel>
+                <Input
+                  id="banco-fecha"
+                  className="h-10 max-w-[16.5rem] text-sm"
+                  type="datetime-local"
+                  value={form.fecha}
+                  onChange={(event) => setForm((prev) => ({ ...prev, fecha: event.target.value }))}
                 />
               </div>
               {isEgresoForm(formMode, editing) ? (
                 <div className="grid gap-2">
-                  <Label htmlFor="banco-destino">Destino</Label>
+                  <FieldLabel htmlFor="banco-destino" icon={Building2}>
+                    Destino
+                  </FieldLabel>
                   <Select
                     value={form.destino || undefined}
                     onValueChange={(value) =>
@@ -385,32 +401,37 @@ export const BancoPage = () => {
                   </Select>
                 </div>
               ) : null}
+              {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             </div>
 
-            <SheetFooter className="flex-row justify-between gap-2 border-t">
-              {editing ? (
+            <SheetFooter className="flex-row gap-2">
+              <Button type="submit" className="h-11 flex-1" disabled={saving}>
+                {saving ? "Guardando…" : "Guardar"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 flex-1"
+                onClick={closeForm}
+                disabled={saving}
+              >
+                Cancelar
+              </Button>
+            </SheetFooter>
+            {editing ? (
+              <div className="px-4 pb-4">
                 <Button
                   type="button"
-                  variant="ghost"
-                  className="text-destructive hover:text-destructive"
+                  variant="destructive"
+                  className="h-11 w-full"
                   onClick={() => void handleDelete(editing)}
                   disabled={saving}
                 >
-                  <Trash2 className="size-4" />
+                  <Trash2 data-icon="inline-start" />
                   Eliminar
                 </Button>
-              ) : (
-                <span />
-              )}
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={closeForm} disabled={saving}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? <Loader2 className="size-4 animate-spin" /> : "Guardar"}
-                </Button>
               </div>
-            </SheetFooter>
+            ) : null}
           </form>
         </SheetContent>
       </Sheet>

@@ -58,6 +58,23 @@ export const todayIsoDate = () => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+export const toBancoDatetimeLocalValue = (fecha: string): string => {
+  const date = fecha.trim().slice(0, 10)
+  if (!ISO_DATE.test(date)) {
+    return ""
+  }
+  return `${date}T12:00`
+}
+
+export const fromBancoDatetimeLocalValue = (value: string): string => {
+  const date = value.trim().slice(0, 10)
+  return ISO_DATE.test(date) ? date : todayIsoDate()
+}
+
+export const defaultBancoDatetimeLocalValue = () => toBancoDatetimeLocalValue(todayIsoDate())
+
 export const normalizeBancoResumen = (value: Partial<BancoResumen> | null | undefined): BancoResumen => ({
   cajaChica: Number(value?.cajaChica ?? 0),
   totalIngresos: Number(value?.totalIngresos ?? 0),
