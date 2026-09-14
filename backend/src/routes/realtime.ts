@@ -163,7 +163,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           "Banco es el módulo de finanzas compartido de EC Assistant (pestaña Banco): una sola caja chica para toda la app; ingresos y egresos son globales. Cada movimiento guarda quién lo registró (user_id), pero el saldo no es por usuario. Distinto de Atlas/Multipréstamos.",
           "Si el usuario dice Banco, mi banco, caja chica de la app, mis ingresos, mis egresos, cuánto hay en caja (sin mencionar préstamos/cobros/clientes) o finanzas de EC Assistant, usa query_banco o create_banco_movimiento.",
           "Recursos query_banco: caja-chica (saldo y totales del período), ingresos, egresos, movimientos (ambos tipos). Params igual que Atlas: periodo, fecha, fechaInicio/fechaFin, limit.",
-          "Para registrar un ingreso o egreso en Banco usa create_banco_movimiento con tipo ingreso o egreso, monto, motivo y fecha opcional (YYYY-MM-DD). Sin fecha → hoy.",
+          "Para registrar en Banco usa create_banco_movimiento: ingreso → tipo, monto, motivo; egreso → además destino obligatorio (ec_construction = EC Construction, multiprestamos_atlas = Multipréstamos Atlas). Por ahora solo registra el egreso aquí; el ingreso en el destino vendrá después. fecha opcional YYYY-MM-DD; sin fecha → hoy.",
           "Toda cifra o movimiento de Banco debe salir de query_banco o confirmarse con create_banco_movimiento. Prohibido inventar.",
           "Sin período explícito en ingresos/egresos de Banco → periodo=hoy. Cada pregunta de otro día o rango → nueva query_banco; no mezcles consultas.",
           "Si el usuario pide PDF de Banco, consulta primero con query_banco y luego generate_report_pdf con source=banco.",
@@ -366,7 +366,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
             type: "function",
             name: "create_banco_movimiento",
             description:
-              "Registra un ingreso o egreso en Banco (caja chica de EC Assistant). Requiere tipo, monto y motivo.",
+              "Registra un ingreso o egreso en Banco (caja chica compartida). Egreso requiere destino; por ahora solo crea el movimiento en esta app.",
             parameters: {
               type: "object",
               properties: {
@@ -381,7 +381,13 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
                 },
                 motivo: {
                   type: "string",
-                  description: "Descripción breve del movimiento.",
+                  description: "Motivo o descripción del movimiento.",
+                },
+                destino: {
+                  type: "string",
+                  enum: ["ec_construction", "multiprestamos_atlas"],
+                  description:
+                    "Obligatorio si tipo=egreso. ec_construction = EC Construction; multiprestamos_atlas = Multipréstamos Atlas (prestamo-nuevo).",
                 },
                 fecha: {
                   type: "string",

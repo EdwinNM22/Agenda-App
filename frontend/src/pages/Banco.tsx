@@ -10,19 +10,28 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import type { BancoMovimiento, BancoResumen, BancoTipo } from "@/lib/banco"
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import type { BancoDestino, BancoMovimiento, BancoResumen, BancoTipo } from "@/lib/banco"
+import {
+  BANCO_DESTINOS,
+  BANCO_DESTINO_LABELS,
   createBancoEgreso,
   createBancoIngreso,
   deleteBancoMovimiento,
@@ -46,8 +55,12 @@ const FILTERS = [
 const emptyForm = () => ({
   monto: "",
   motivo: "",
+  destino: "" as BancoDestino | "",
   fecha: todayIsoDate(),
 })
+
+const isEgresoForm = (mode: FormMode, editing: BancoMovimiento | null) =>
+  mode === "egreso" || editing?.tipo === "egreso"
 
 export const BancoPage = () => {
   const [resumen, setResumen] = useState<BancoResumen | null>(null)
@@ -99,6 +112,7 @@ export const BancoPage = () => {
     setForm({
       monto: String(movimiento.monto),
       motivo: movimiento.motivo,
+      destino: movimiento.destino ?? "",
       fecha: movimiento.fecha,
     })
   }
@@ -122,17 +136,27 @@ export const BancoPage = () => {
       setError("El motivo es obligatorio.")
       return
     }
+    const needsDestino = isEgresoForm(formMode, editing)
+    if (needsDestino && !form.destino) {
+      setError("Selecciona el destino del egreso.")
+      return
+    }
 
     setSaving(true)
     setError(null)
     try {
-      const body = { monto, motivo: form.motivo.trim(), fecha: form.fecha }
+      const body = {
+        monto,
+        motivo: form.motivo.trim(),
+        fecha: form.fecha,
+        ...(needsDestino ? { destino: form.destino as BancoDestino } : {}),
+      }
       if (editing) {
         await updateBancoMovimiento(editing.id, body)
       } else if (formMode === "ingreso") {
         await createBancoIngreso(body)
       } else if (formMode === "egreso") {
-        await createBancoEgreso(body)
+        await createBancoEgreso(body as { monto: number; motivo: string; destino: BancoDestino; fecha: string })
       }
       closeForm()
       await reload()
@@ -276,6 +300,7 @@ export const BancoPage = () => {
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {formatBancoDate(movimiento.fecha)}
+                    {movimiento.destinoLabel ? ` · ${movimiento.destinoLabel}` : ""}
                     {movimiento.registradoPor ? ` · ${movimiento.registradoPor}` : ""}
                   </p>
                 </div>
@@ -285,22 +310,23 @@ export const BancoPage = () => {
         )}
       </section>
 
-      <Dialog open={formMode !== null} onOpenChange={(open) => !open && closeForm()}>
-        <DialogContent className="max-w-md rounded-3xl">
-          <DialogHeader>
-            <DialogTitle>
+      <Sheet open={formMode !== null} onOpenChange={(open) => !open && closeForm()}>
+        <SheetContent
+          side="bottom"
+          className="z-60 max-h-[88vh] gap-0 overflow-y-auto rounded-t-[1.75rem] pb-[calc(var(--k-safe-area-bottom)+1.25rem)]"
+        >
+          <SheetHeader className="border-b">
+            <SheetTitle>
               {editing
                 ? `Editar ${editing.tipo}`
                 : formMode === "ingreso"
                   ? "Nuevo ingreso"
                   : "Nuevo egreso"}
-            </DialogTitle>
-            <DialogDescription>
-              Registra un movimiento en la caja chica.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetTitle>
+            <SheetDescription>Registra un movimiento en la caja chica.</SheetDescription>
+          </SheetHeader>
 
-          <div className="grid gap-4 py-2">
+          <div className="grid gap-4 px-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="banco-monto">Monto</Label>
               <Input
@@ -312,6 +338,7 @@ export const BancoPage = () => {
                 value={form.monto}
                 onChange={(event) => setForm((prev) => ({ ...prev, monto: event.target.value }))}
                 placeholder="0.00"
+                className="h-11"
               />
             </div>
             <div className="grid gap-2">
@@ -321,6 +348,7 @@ export const BancoPage = () => {
                 type="date"
                 value={form.fecha}
                 onChange={(event) => setForm((prev) => ({ ...prev, fecha: event.target.value }))}
+                className="h-11"
               />
             </div>
             <div className="grid gap-2">
@@ -333,9 +361,31 @@ export const BancoPage = () => {
                 rows={3}
               />
             </div>
+            {isEgresoForm(formMode, editing) ? (
+              <div className="grid gap-2">
+                <Label htmlFor="banco-destino">Destino</Label>
+                <Select
+                  value={form.destino || undefined}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, destino: value as BancoDestino }))
+                  }
+                >
+                  <SelectTrigger id="banco-destino" className="h-11 w-full">
+                    <SelectValue placeholder="Selecciona destino" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" className="z-[100]">
+                    {BANCO_DESTINOS.map((destino) => (
+                      <SelectItem key={destino} value={destino}>
+                        {BANCO_DESTINO_LABELS[destino]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
           </div>
 
-          <DialogFooter className="gap-2 sm:justify-between">
+          <SheetFooter className="flex-row justify-between gap-2 border-t">
             {editing ? (
               <Button
                 type="button"
@@ -358,9 +408,9 @@ export const BancoPage = () => {
                 {saving ? <Loader2 className="size-4 animate-spin" /> : "Guardar"}
               </Button>
             </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </main>
   )
 }

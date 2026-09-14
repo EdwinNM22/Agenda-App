@@ -374,12 +374,27 @@ export const BANCO_TIPOS = ["ingreso", "egreso"] as const
 
 export type BancoTipo = (typeof BANCO_TIPOS)[number]
 
+export const BANCO_DESTINOS = ["ec_construction", "multiprestamos_atlas"] as const
+
+export type BancoDestino = (typeof BANCO_DESTINOS)[number]
+
+export const BANCO_DESTINO_LABELS: Record<BancoDestino, string> = {
+  ec_construction: "EC Construction",
+  multiprestamos_atlas: "Multipréstamos Atlas",
+}
+
+/** Future cross-app ingreso target (prestamo-nuevo); not wired yet. */
+export const BANCO_DESTINO_INTEGRATION: Partial<Record<BancoDestino, string>> = {
+  multiprestamos_atlas: "prestamo-nuevo",
+}
+
 export type BancoMovimientoRow = RowDataPacket & {
   id: number
   user_id: number
   tipo: BancoTipo
   monto: string
   motivo: string
+  destino: BancoDestino | null
   fecha: string
   created_at: Date
 }
@@ -391,6 +406,8 @@ export type PublicBancoMovimiento = {
   tipo: BancoTipo
   monto: number
   motivo: string
+  destino: BancoDestino | null
+  destinoLabel: string | null
   fecha: string
   createdAt: string
 }
@@ -411,6 +428,33 @@ export const parseBancoMonto = (value: unknown): number | null => {
   return Math.round(amount * 100) / 100
 }
 
+const DESTINO_ALIASES: Record<string, BancoDestino> = {
+  ec_construction: "ec_construction",
+  ecconstruction: "ec_construction",
+  construction: "ec_construction",
+  "ec construction": "ec_construction",
+  multiprestamos_atlas: "multiprestamos_atlas",
+  multiprestamos: "multiprestamos_atlas",
+  atlas: "multiprestamos_atlas",
+  "multiprestamos atlas": "multiprestamos_atlas",
+  "multipréstamos atlas": "multiprestamos_atlas",
+  prestamo_nuevo: "multiprestamos_atlas",
+  "prestamo-nuevo": "multiprestamos_atlas",
+}
+
+export const parseBancoDestino = (value: unknown): BancoDestino | null => {
+  if (typeof value !== "string") {
+    return null
+  }
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[\s_-]+/g, "_")
+  return DESTINO_ALIASES[normalized] ?? DESTINO_ALIASES[value.trim().toLowerCase()] ?? null
+}
+
 export const parseBancoFecha = (value: unknown): string | null => {
   if (typeof value !== "string") {
     return null
@@ -429,16 +473,21 @@ const formatBancoFecha = (value: string | Date): string => {
 
 export const toPublicBancoMovimiento = (
   row: BancoMovimientoRow & { user_name?: string | null },
-): PublicBancoMovimiento => ({
-  id: row.id,
-  userId: row.user_id,
-  registradoPor: row.user_name?.trim() || "Usuario",
-  tipo: row.tipo,
-  monto: Number(row.monto),
-  motivo: row.motivo,
-  fecha: formatBancoFecha(row.fecha as string | Date),
-  createdAt: row.created_at.toISOString(),
-})
+): PublicBancoMovimiento => {
+  const destino = row.destino ? parseBancoDestino(row.destino) : null
+  return {
+    id: row.id,
+    userId: row.user_id,
+    registradoPor: row.user_name?.trim() || "Usuario",
+    tipo: row.tipo,
+    monto: Number(row.monto),
+    motivo: row.motivo,
+    destino,
+    destinoLabel: destino ? BANCO_DESTINO_LABELS[destino] : null,
+    fecha: formatBancoFecha(row.fecha as string | Date),
+    createdAt: row.created_at.toISOString(),
+  }
+}
 
 export const ensureBancoTables = async () => {
   await pool.query(`
@@ -456,4 +505,17 @@ export const ensureBancoTables = async () => {
       CONSTRAINT fk_banco_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `)
+
+  const [destinoCols] = await pool.query<RowDataPacket[]>(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = :schemaName AND TABLE_NAME = 'banco_movimientos' AND COLUMN_NAME = 'destino'`,
+    { schemaName: config.db.database },
+  )
+  if (destinoCols.length === 0) {
+    await pool.query(`
+      ALTER TABLE banco_movimientos
+      ADD COLUMN destino VARCHAR(32) NULL COMMENT 'egreso: ec_construction | multiprestamos_atlas'
+      AFTER motivo
+    `)
+  }
 }

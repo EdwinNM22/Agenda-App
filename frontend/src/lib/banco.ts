@@ -2,6 +2,15 @@ import { api } from "@/lib/api"
 
 export type BancoTipo = "ingreso" | "egreso"
 
+export const BANCO_DESTINOS = ["ec_construction", "multiprestamos_atlas"] as const
+
+export type BancoDestino = (typeof BANCO_DESTINOS)[number]
+
+export const BANCO_DESTINO_LABELS: Record<BancoDestino, string> = {
+  ec_construction: "EC Construction",
+  multiprestamos_atlas: "Multipréstamos Atlas",
+}
+
 export type BancoMovimiento = {
   id: number
   userId: number
@@ -9,6 +18,8 @@ export type BancoMovimiento = {
   tipo: BancoTipo
   monto: number
   motivo: string
+  destino: BancoDestino | null
+  destinoLabel: string | null
   fecha: string
   createdAt: string
 }
@@ -73,7 +84,12 @@ export const createBancoIngreso = (body: { monto: number; motivo: string; fecha:
     body: JSON.stringify(body),
   })
 
-export const createBancoEgreso = (body: { monto: number; motivo: string; fecha: string }) =>
+export const createBancoEgreso = (body: {
+  monto: number
+  motivo: string
+  destino: BancoDestino
+  fecha: string
+}) =>
   api<{ movimiento: BancoMovimiento }>("/banco/egresos", {
     method: "POST",
     body: JSON.stringify(body),
@@ -81,7 +97,7 @@ export const createBancoEgreso = (body: { monto: number; motivo: string; fecha: 
 
 export const updateBancoMovimiento = (
   id: number,
-  body: { monto?: number; motivo?: string; fecha?: string },
+  body: { monto?: number; motivo?: string; destino?: BancoDestino; fecha?: string },
 ) =>
   api<{ movimiento: BancoMovimiento | null }>(`/banco/movimientos/${id}`, {
     method: "PATCH",

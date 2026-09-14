@@ -598,6 +598,8 @@ const slimBancoMovimiento = (item: unknown): Record<string, unknown> | unknown =
       typeof source.motivo === "string" && source.motivo.trim()
         ? source.motivo.trim()
         : source.motivo ?? null,
+    destino: source.destino ?? null,
+    destinoLabel: source.destinoLabel ?? null,
     fecha: source.fecha,
   }
 }
@@ -674,6 +676,7 @@ type CreateBancoMovimientoArgs = {
   tipo?: unknown
   monto?: unknown
   motivo?: unknown
+  destino?: unknown
   fecha?: unknown
 }
 
@@ -705,11 +708,23 @@ const runCreateBancoMovimiento = async (
     if (!fecha || typeof fecha !== "string") {
       return finishTool(channel, callId, { ok: false, message: "Fecha inválida" })
     }
+    const destino = typeof parsed.destino === "string" ? parsed.destino.trim() : ""
+    if (tipo === "egreso" && !destino) {
+      return finishTool(channel, callId, {
+        ok: false,
+        message: "Destino obligatorio para egreso: ec_construction o multiprestamos_atlas",
+      })
+    }
 
     const path = tipo === "ingreso" ? "ingresos" : "egresos"
     const result = await api<{ movimiento: Record<string, unknown> }>(`/banco/${path}`, {
       method: "POST",
-      body: JSON.stringify({ monto, motivo, fecha }),
+      body: JSON.stringify({
+        monto,
+        motivo,
+        fecha,
+        ...(tipo === "egreso" ? { destino } : {}),
+      }),
     })
 
     return finishTool(channel, callId, {

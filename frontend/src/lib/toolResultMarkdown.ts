@@ -137,6 +137,7 @@ const PRESTAMO_COLUMNS: Array<{ key: string; label: string }> = [
   { key: "fechaVencimiento", label: "Vence" },
   { key: "fechaDesembolsado", label: "Desembolso" },
   { key: "motivo", label: "Motivo" },
+  { key: "destinoLabel", label: "Destino" },
   { key: "registradoPor", label: "Registró" },
   { key: "tipo", label: "Tipo" },
   { key: "creditoTipo", label: "Crédito" },
