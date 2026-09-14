@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react"
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -126,7 +126,8 @@ export const BancoPage = () => {
     setForm(emptyForm())
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault()
     const monto = Number(form.monto)
     if (!Number.isFinite(monto) || monto <= 0) {
       setError("El monto debe ser mayor a cero.")
@@ -313,102 +314,104 @@ export const BancoPage = () => {
       <Sheet open={formMode !== null} onOpenChange={(open) => !open && closeForm()}>
         <SheetContent
           side="bottom"
-          className="z-60 max-h-[88vh] gap-0 overflow-y-auto rounded-t-[1.75rem] pb-[calc(var(--k-safe-area-bottom)+1.25rem)]"
+          className="z-60 gap-0 overflow-y-auto rounded-t-3xl pb-[calc(var(--k-safe-area-bottom)+1rem)]"
         >
-          <SheetHeader className="border-b">
-            <SheetTitle>
-              {editing
-                ? `Editar ${editing.tipo}`
-                : formMode === "ingreso"
-                  ? "Nuevo ingreso"
-                  : "Nuevo egreso"}
-            </SheetTitle>
-            <SheetDescription>Registra un movimiento en la caja chica.</SheetDescription>
-          </SheetHeader>
+          <form onSubmit={(event) => void handleSubmit(event)}>
+            <SheetHeader className="border-b">
+              <SheetTitle>
+                {editing
+                  ? `Editar ${editing.tipo}`
+                  : formMode === "ingreso"
+                    ? "Nuevo ingreso"
+                    : "Nuevo egreso"}
+              </SheetTitle>
+              <SheetDescription>Registra un movimiento en la caja chica.</SheetDescription>
+            </SheetHeader>
 
-          <div className="grid gap-4 px-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="banco-monto">Monto</Label>
-              <Input
-                id="banco-monto"
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                value={form.monto}
-                onChange={(event) => setForm((prev) => ({ ...prev, monto: event.target.value }))}
-                placeholder="0.00"
-                className="h-11"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="banco-fecha">Fecha</Label>
-              <Input
-                id="banco-fecha"
-                type="date"
-                value={form.fecha}
-                onChange={(event) => setForm((prev) => ({ ...prev, fecha: event.target.value }))}
-                className="h-11"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="banco-motivo">Motivo</Label>
-              <Textarea
-                id="banco-motivo"
-                value={form.motivo}
-                onChange={(event) => setForm((prev) => ({ ...prev, motivo: event.target.value }))}
-                placeholder="Describe el movimiento"
-                rows={3}
-              />
-            </div>
-            {isEgresoForm(formMode, editing) ? (
+            <div className="grid gap-4 px-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="banco-destino">Destino</Label>
-                <Select
-                  value={form.destino || undefined}
-                  onValueChange={(value) =>
-                    setForm((prev) => ({ ...prev, destino: value as BancoDestino }))
-                  }
-                >
-                  <SelectTrigger id="banco-destino" className="h-11 w-full">
-                    <SelectValue placeholder="Selecciona destino" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" className="z-[100]">
-                    {BANCO_DESTINOS.map((destino) => (
-                      <SelectItem key={destino} value={destino}>
-                        {BANCO_DESTINO_LABELS[destino]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="banco-monto">Monto</Label>
+                <Input
+                  id="banco-monto"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={form.monto}
+                  onChange={(event) => setForm((prev) => ({ ...prev, monto: event.target.value }))}
+                  placeholder="0.00"
+                  className="h-11"
+                />
               </div>
-            ) : null}
-          </div>
-
-          <SheetFooter className="flex-row justify-between gap-2 border-t">
-            {editing ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
-                onClick={() => void handleDelete(editing)}
-                disabled={saving}
-              >
-                <Trash2 className="size-4" />
-                Eliminar
-              </Button>
-            ) : (
-              <span />
-            )}
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={closeForm} disabled={saving}>
-                Cancelar
-              </Button>
-              <Button type="button" onClick={() => void handleSubmit()} disabled={saving}>
-                {saving ? <Loader2 className="size-4 animate-spin" /> : "Guardar"}
-              </Button>
+              <div className="grid gap-2">
+                <Label htmlFor="banco-fecha">Fecha</Label>
+                <Input
+                  id="banco-fecha"
+                  type="date"
+                  value={form.fecha}
+                  onChange={(event) => setForm((prev) => ({ ...prev, fecha: event.target.value }))}
+                  className="h-11"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="banco-motivo">Motivo</Label>
+                <Textarea
+                  id="banco-motivo"
+                  value={form.motivo}
+                  onChange={(event) => setForm((prev) => ({ ...prev, motivo: event.target.value }))}
+                  placeholder="Describe el movimiento"
+                  rows={3}
+                />
+              </div>
+              {isEgresoForm(formMode, editing) ? (
+                <div className="grid gap-2">
+                  <Label htmlFor="banco-destino">Destino</Label>
+                  <Select
+                    value={form.destino || undefined}
+                    onValueChange={(value) =>
+                      setForm((prev) => ({ ...prev, destino: value as BancoDestino }))
+                    }
+                  >
+                    <SelectTrigger id="banco-destino" className="h-11 w-full">
+                      <SelectValue placeholder="Selecciona destino" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" className="z-[100]">
+                      {BANCO_DESTINOS.map((destino) => (
+                        <SelectItem key={destino} value={destino}>
+                          {BANCO_DESTINO_LABELS[destino]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
             </div>
-          </SheetFooter>
+
+            <SheetFooter className="flex-row justify-between gap-2 border-t">
+              {editing ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => void handleDelete(editing)}
+                  disabled={saving}
+                >
+                  <Trash2 className="size-4" />
+                  Eliminar
+                </Button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={closeForm} disabled={saving}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? <Loader2 className="size-4 animate-spin" /> : "Guardar"}
+                </Button>
+              </div>
+            </SheetFooter>
+          </form>
         </SheetContent>
       </Sheet>
     </main>

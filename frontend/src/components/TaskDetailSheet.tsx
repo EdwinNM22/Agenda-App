@@ -127,7 +127,7 @@ export const TaskDetailSheet = ({ task, open, onOpenChange, onChanged }: TaskDet
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="z-60 max-h-[88vh] gap-0 overflow-y-auto rounded-t-3xl pb-[calc(var(--k-safe-area-bottom)+1rem)]"
+        className="z-60 gap-0 overflow-y-auto rounded-t-3xl pb-[calc(var(--k-safe-area-bottom)+1rem)]"
       >
         {task ? (
           <form onSubmit={onSave}>
