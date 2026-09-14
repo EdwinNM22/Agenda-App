@@ -526,6 +526,204 @@ const queryPrestamoApi = async (slug: string, params: Record<string, unknown> | 
   }
 }
 
+type QueryBancoArgs = {
+  resource?: unknown
+  params?: Record<string, unknown>
+}
+
+const BANCO_RESOURCES = new Set(["caja-chica", "ingresos", "egresos", "movimientos"])
+
+const toBancoQueryParams = (
+  params: Record<string, unknown> | undefined,
+  resource: string,
+): Record<string, string> => {
+  let normalized = normalizePrestamoParams(params) ?? {}
+  if (
+    (resource === "ingresos" || resource === "egresos" || resource === "movimientos") &&
+    !normalized.fecha &&
+    !normalized.fechaInicio
+  ) {
+    normalized = normalizePrestamoParams({ ...(params ?? {}), periodo: "hoy" }) ?? {}
+  }
+
+  const query: Record<string, string> = {}
+  if (typeof normalized.fecha === "string" && normalized.fecha) {
+    query.from = normalized.fecha
+    query.to = normalized.fecha
+  } else if (typeof normalized.fechaInicio === "string" && typeof normalized.fechaFin === "string") {
+    query.from = normalized.fechaInicio
+    query.to = normalized.fechaFin
+  }
+
+  const limit = Number(normalized.limit)
+  if (Number.isInteger(limit) && limit > 0) {
+    query.limit = String(Math.min(limit, 500))
+  }
+
+  return query
+}
+
+const bancoPeriodFromQuery = (query: Record<string, string>) => {
+  if (query.from && query.to) {
+    return { fechaInicio: query.from, fechaFin: query.to, ...(query.from === query.to ? { fecha: query.from } : {}) }
+  }
+  return undefined
+}
+
+const enrichBancoResult = (
+  result: Record<string, unknown>,
+  resource: string,
+  query: Record<string, string>,
+): Record<string, unknown> => ({
+  ...result,
+  ok: true,
+  resource,
+  periodoConsultado: bancoPeriodFromQuery(query),
+  instruccion:
+    "Responde solo con los datos de esta respuesta y periodoConsultado. No combines con consultas anteriores.",
+})
+
+const slimBancoMovimiento = (item: unknown): Record<string, unknown> | unknown => {
+  if (!item || typeof item !== "object") {
+    return item
+  }
+  const source = item as Record<string, unknown>
+  return {
+    id: source.id,
+    tipo: source.tipo,
+    monto: source.monto,
+    motivo:
+      typeof source.motivo === "string" && source.motivo.trim()
+        ? source.motivo.trim()
+        : source.motivo ?? null,
+    fecha: source.fecha,
+  }
+}
+
+const queryBancoApi = async (path: string, query: Record<string, string>) => {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), PRESTAMO_QUERY_TIMEOUT_MS)
+  try {
+    const qs = toQueryString(query)
+    return await api<Record<string, unknown>>(`/banco/${path}${qs}`, { signal: controller.signal })
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+const runQueryBanco = async (channel: RTCDataChannel, callId: string, raw: string): Promise<ToolRunResult> => {
+  try {
+    const parsed = JSON.parse(raw) as QueryBancoArgs
+    const resource = typeof parsed.resource === "string" ? parsed.resource.trim() : ""
+    if (!BANCO_RESOURCES.has(resource)) {
+      return finishTool(channel, callId, {
+        ok: false,
+        message: "resource inválido para query_banco",
+      })
+    }
+
+    const query = toBancoQueryParams(parsed.params, resource)
+
+    if (resource === "caja-chica") {
+      const data = await queryBancoApi("resumen", query)
+      return finishTool(
+        channel,
+        callId,
+        enrichBancoResult({ data }, resource, query),
+        { resource },
+      )
+    }
+
+    const tipo = resource === "movimientos" ? undefined : resource === "ingresos" ? "ingreso" : "egreso"
+    const movQuery = { ...query, ...(tipo ? { tipo } : {}) }
+    const payload = await queryBancoApi("movimientos", movQuery)
+    const movimientos = Array.isArray(payload.movimientos)
+      ? payload.movimientos.map(slimBancoMovimiento)
+      : []
+
+    const data: Record<string, unknown> = { movimientos }
+    if (resource === "ingresos") {
+      data.ingresos = movimientos
+    } else if (resource === "egresos") {
+      data.egresos = movimientos
+    }
+
+    return finishTool(
+      channel,
+      callId,
+      enrichBancoResult({ data }, resource, query),
+      { resource },
+    )
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? "La consulta a Banco tardó demasiado"
+        : error instanceof Error
+          ? error.message
+          : "No se pudo consultar Banco"
+    return finishTool(channel, callId, {
+      ok: false,
+      message,
+    })
+  }
+}
+
+type CreateBancoMovimientoArgs = {
+  tipo?: unknown
+  monto?: unknown
+  motivo?: unknown
+  fecha?: unknown
+}
+
+const runCreateBancoMovimiento = async (
+  channel: RTCDataChannel,
+  callId: string,
+  raw: string,
+): Promise<ToolRunResult> => {
+  try {
+    const parsed = JSON.parse(raw) as CreateBancoMovimientoArgs
+    const tipo = typeof parsed.tipo === "string" ? parsed.tipo.trim().toLowerCase() : ""
+    const monto = typeof parsed.monto === "number" ? parsed.monto : Number(parsed.monto)
+    const motivo = typeof parsed.motivo === "string" ? parsed.motivo.trim() : ""
+    const fechaRaw = typeof parsed.fecha === "string" ? parsed.fecha.trim() : ""
+    const fecha =
+      fechaRaw && /^\d{4}-\d{2}-\d{2}$/.test(fechaRaw)
+        ? fechaRaw
+        : normalizePrestamoParams({ periodo: "hoy" })?.fecha
+
+    if (tipo !== "ingreso" && tipo !== "egreso") {
+      return finishTool(channel, callId, { ok: false, message: "tipo debe ser ingreso o egreso" })
+    }
+    if (!Number.isFinite(monto) || monto <= 0) {
+      return finishTool(channel, callId, { ok: false, message: "El monto debe ser mayor a cero" })
+    }
+    if (!motivo) {
+      return finishTool(channel, callId, { ok: false, message: "El motivo es obligatorio" })
+    }
+    if (!fecha || typeof fecha !== "string") {
+      return finishTool(channel, callId, { ok: false, message: "Fecha inválida" })
+    }
+
+    const path = tipo === "ingreso" ? "ingresos" : "egresos"
+    const result = await api<{ movimiento: Record<string, unknown> }>(`/banco/${path}`, {
+      method: "POST",
+      body: JSON.stringify({ monto, motivo, fecha }),
+    })
+
+    return finishTool(channel, callId, {
+      ok: true,
+      tipo,
+      movimiento: slimBancoMovimiento(result.movimiento),
+      instruccion: "Confirma brevemente el movimiento registrado en Banco.",
+    })
+  } catch (error) {
+    return finishTool(channel, callId, {
+      ok: false,
+      message: error instanceof Error ? error.message : "No se pudo registrar el movimiento",
+    })
+  }
+}
+
 const runQueryPrestamo = async (channel: RTCDataChannel, callId: string, raw: string): Promise<ToolRunResult> => {
   try {
     const parsed = JSON.parse(raw) as QueryPrestamoArgs
@@ -589,7 +787,7 @@ const publishStructuredChat = (
   if (!result) {
     return
   }
-  if (toolName === "list_tasks" || toolName === "query_prestamo") {
+  if (toolName === "list_tasks" || toolName === "query_prestamo" || toolName === "query_banco") {
     pushSessionToolData(toolName, result.output)
   }
   const markdown = formatToolResultMarkdown(toolName, result.output)
@@ -631,7 +829,11 @@ const runGenerateReportPdf = async (
   const fileName = typeof parsed.fileName === "string" ? parsed.fileName : undefined
   const sourceRaw = typeof parsed.source === "string" ? parsed.source.trim().toLowerCase() : "last"
   const source =
-    sourceRaw === "tasks" || sourceRaw === "prestamo" || sourceRaw === "all" || sourceRaw === "last"
+    sourceRaw === "tasks" ||
+    sourceRaw === "prestamo" ||
+    sourceRaw === "banco" ||
+    sourceRaw === "all" ||
+    sourceRaw === "last"
       ? sourceRaw
       : "last"
 
@@ -768,6 +970,15 @@ export const handleRealtimeToolEvent = async (
       }
       if (call.name === "delete_task") {
         await runDeleteTask(channel, call.callId, call.args)
+        handlers?.onAwaitingResponse?.()
+      }
+      if (call.name === "query_banco") {
+        const result = await runQueryBanco(channel, call.callId, call.args)
+        publishStructuredChat(call.name, result, handlers)
+        handlers?.onAwaitingResponse?.()
+      }
+      if (call.name === "create_banco_movimiento") {
+        await runCreateBancoMovimiento(channel, call.callId, call.args)
         handlers?.onAwaitingResponse?.()
       }
       if (call.name === "query_prestamo") {

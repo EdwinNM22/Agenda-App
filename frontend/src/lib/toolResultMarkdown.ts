@@ -105,6 +105,7 @@ const PRESTAMO_LIST_RESOURCES: Record<string, { title: string; keys: string[] }>
   desembolsos: { title: "Desembolsos", keys: ["desembolsos", "creditos", "data", "items"] },
   creditos: { title: "Créditos", keys: ["creditos", "data", "items"] },
   clientes: { title: "Clientes", keys: ["clientes", "data", "items"] },
+  movimientos: { title: "Movimientos", keys: ["movimientos", "data", "items"] },
 }
 
 /** Resúmenes / KPIs: no pintar Markdown; que Isi narre y salga en el chat. */
@@ -198,6 +199,9 @@ export const formatToolResultMarkdown = (
     return formatListTasks(output)
   }
   if (toolName === "query_prestamo") {
+    return formatQueryPrestamo(output)
+  }
+  if (toolName === "query_banco") {
     return formatQueryPrestamo(output)
   }
   return null

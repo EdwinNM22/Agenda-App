@@ -11,6 +11,7 @@ import { registerRealtimeRoutes } from "./routes/realtime.js"
 import { registerTaskSocketRoutes } from "./routes/taskSocket.js"
 import { registerPushRoutes } from "./routes/push.js"
 import { registerTaskRoutes } from "./routes/tasks.js"
+import { registerBancoRoutes } from "./routes/banco.js"
 import { registerPrestamoIntegrationRoutes } from "./routes/integrations/prestamo.js"
 import { registerReportRoutes } from "./routes/reports.js"
 import { avatarsDir, attachmentsDir, wallpapersDir, reportsDir, ensureUploadDirs } from "./uploads.js"
@@ -153,6 +154,7 @@ export const buildApp = async () => {
   await registerAuthRoutes(app)
   await registerRealtimeRoutes(app)
   await registerTaskRoutes(app)
+  await registerBancoRoutes(app)
   await registerPushRoutes(app)
   await registerTaskSocketRoutes(app)
   await registerPrestamoIntegrationRoutes(app)

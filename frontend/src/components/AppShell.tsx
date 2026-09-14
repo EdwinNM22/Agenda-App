@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { CheckSquare, Home, Settings2 } from "lucide-react"
+import { CheckSquare, Home, Settings2, Wallet } from "lucide-react"
 import { App, Icon, Tabbar, TabbarLink, ToolbarPane } from "konsta/react"
 import { LiquidGlass } from "liquid-glass-backdrop-react"
 import { motion } from "motion/react"
@@ -12,6 +12,7 @@ import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { HomePage } from "@/pages/Home"
 import { OptionsPage } from "@/pages/Options"
+import { BancoPage } from "@/pages/Banco"
 import { TasksPage } from "@/pages/Tasks"
 
 const tabs = [
@@ -21,6 +22,12 @@ const tabs = [
     label: "Agenda",
     match: (path: string) => path.startsWith("/tareas"),
     Icon: CheckSquare,
+  },
+  {
+    to: "/banco",
+    label: "Banco",
+    match: (path: string) => path.startsWith("/banco"),
+    Icon: Wallet,
   },
   {
     to: "/opciones",
@@ -84,6 +91,9 @@ const ShellChrome = () => {
         </TabScreen>
         <TabScreen active={pathname === "/tareas"} fade={theme !== "wallpaper"}>
           <TasksPage />
+        </TabScreen>
+        <TabScreen active={pathname.startsWith("/banco")} fade={theme !== "wallpaper"}>
+          <BancoPage />
         </TabScreen>
         <TabScreen
           active={pathname.startsWith("/opciones") || pathname.startsWith("/perfil")}

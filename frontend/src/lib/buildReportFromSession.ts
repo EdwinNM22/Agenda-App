@@ -92,6 +92,7 @@ const PRESTAMO_LIST_KEYS: Record<string, { title: string; keys: string[] }> = {
   desembolsos: { title: "Desembolsos", keys: ["desembolsos", "creditos", "data", "items"] },
   creditos: { title: "Créditos", keys: ["creditos", "data", "items"] },
   clientes: { title: "Clientes", keys: ["clientes", "data", "items"] },
+  movimientos: { title: "Movimientos", keys: ["movimientos", "data", "items"] },
 }
 
 const findListRows = (data: Record<string, unknown>, keys: string[]) => {
@@ -239,6 +240,9 @@ const buildFromSnapshot = (snapshot: SessionToolSnapshot, title: string): Report
   if (snapshot.tool === "list_tasks") {
     return buildFromTasks(snapshot.output, title)
   }
+  if (snapshot.tool === "query_banco") {
+    return buildFromPrestamo(snapshot.output, title.replace(/Atlas/i, "Banco"))
+  }
   return buildFromPrestamo(snapshot.output, title)
 }
 
@@ -246,16 +250,17 @@ const defaultTitleFor = (snapshot: SessionToolSnapshot): string => {
   if (snapshot.tool === "list_tasks") {
     return "Reporte de tareas"
   }
-  const resource = typeof snapshot.output.resource === "string" ? snapshot.output.resource : "Atlas"
+  const label = snapshot.tool === "query_banco" ? "Banco" : "Atlas"
+  const resource = typeof snapshot.output.resource === "string" ? snapshot.output.resource : label
   const config = PRESTAMO_LIST_KEYS[resource]
-  return config ? `Reporte de ${config.title.toLowerCase()}` : "Reporte Atlas"
+  return config ? `Reporte de ${config.title.toLowerCase()}` : `Reporte ${label}`
 }
 
 /** Arma un Report desde los datos cacheados de la sesión (sin que el modelo reenvíe filas). */
 export const buildReportFromSession = (options?: {
   title?: string
   subtitle?: string
-  source?: "last" | "tasks" | "prestamo" | "all"
+  source?: "last" | "tasks" | "prestamo" | "banco" | "all"
 }): { report: Report } | { error: string } => {
   const source = options?.source ?? "last"
   const title = options?.title?.trim()
@@ -293,12 +298,18 @@ export const buildReportFromSession = (options?: {
   }
 
   const tool =
-    source === "tasks" ? "list_tasks" : source === "prestamo" ? "query_prestamo" : undefined
+    source === "tasks"
+      ? "list_tasks"
+      : source === "prestamo"
+        ? "query_prestamo"
+        : source === "banco"
+          ? "query_banco"
+          : undefined
   const snapshot = getLatestSessionToolData(tool)
   if (!snapshot) {
     return {
       error:
-        "No hay resultados recientes para generar el PDF. Consulta primero los datos (tareas o Atlas) y luego pide el reporte.",
+        "No hay resultados recientes para generar el PDF. Consulta primero los datos (tareas, Banco o Atlas) y luego pide el reporte.",
     }
   }
 

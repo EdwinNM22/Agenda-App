@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth"
 import { HomePage } from "@/pages/Home"
 import { LoginPage } from "@/pages/Login"
 import { OptionsPage } from "@/pages/Options"
+import { BancoPage } from "@/pages/Banco"
 import { TasksPage } from "@/pages/Tasks"
 
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -38,6 +39,7 @@ const App = () => {
       >
         <Route path="/" element={<HomePage />} />
         <Route path="/tareas" element={<TasksPage />} />
+        <Route path="/banco" element={<BancoPage />} />
         <Route path="/opciones" element={<OptionsPage />} />
         <Route path="/perfil" element={<Navigate to="/opciones" replace />} />
       </Route>

@@ -1,6 +1,12 @@
 import { config } from "./config.js"
 import { buildApp } from "./app.js"
-import { ensureAttachmentsTable, ensurePushSubscriptionsTable, ensureTasksTable, ensureUsersSchema } from "./db.js"
+import {
+  ensureAttachmentsTable,
+  ensureBancoTables,
+  ensurePushSubscriptionsTable,
+  ensureTasksTable,
+  ensureUsersSchema,
+} from "./db.js"
 import { startNotifyWorker } from "./notifyWorker.js"
 
 const app = await buildApp()
@@ -10,6 +16,7 @@ try {
   await ensureTasksTable()
   await ensureAttachmentsTable()
   await ensurePushSubscriptionsTable()
+  await ensureBancoTables()
   await app.listen({ port: config.port, host: config.host })
   startNotifyWorker(app.log)
 } catch (error) {

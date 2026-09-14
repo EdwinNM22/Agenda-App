@@ -43,6 +43,7 @@ export default defineConfig(({ mode }) => {
     "/auth": { target: apiTarget, changeOrigin: true },
     "/realtime": { target: apiTarget, changeOrigin: true },
     "/tasks": { target: apiTarget, changeOrigin: true },
+    "/banco": { target: apiTarget, changeOrigin: true },
     "/uploads": { target: apiTarget, changeOrigin: true },
     "/push": { target: apiTarget, changeOrigin: true },
     "/ws": { target: apiTarget, changeOrigin: true, ws: true },
@@ -122,6 +123,7 @@ export default defineConfig(({ mode }) => {
           navigateFallbackDenylist: [
             /^\/auth(?:\/|$)/,
             /^\/tasks(?:\/|$)/,
+            /^\/banco(?:\/|$)/,
             /^\/realtime(?:\/|$)/,
             /^\/health(?:\/|$)/,
             /^\/uploads(?:\/|$)/,

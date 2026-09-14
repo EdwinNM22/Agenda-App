@@ -159,9 +159,19 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           // FINALIZAR LLAMADA
           "Solo llama a end_call si el usuario se despide con claridad: thanks EC, thanks isi, thank you EC o gracias EC. Nunca cuelgues por ruido, eco de tu propia voz, un saludo, ni una frase suelta como «gracias» o tu nombre. Si no estás seguro, sigue en la llamada.",
 
+          // BANCO — finanzas nativas de EC Assistant
+          "Banco es el módulo de finanzas de esta app (pestaña Banco): caja chica, ingresos y egresos registrados aquí, distinto de Atlas/Multipréstamos.",
+          "Si el usuario dice Banco, mi banco, caja chica de la app, mis ingresos, mis egresos, cuánto hay en caja (sin mencionar préstamos/cobros/clientes) o finanzas de EC Assistant, usa query_banco o create_banco_movimiento.",
+          "Recursos query_banco: caja-chica (saldo y totales del período), ingresos, egresos, movimientos (ambos tipos). Params igual que Atlas: periodo, fecha, fechaInicio/fechaFin, limit.",
+          "Para registrar un ingreso o egreso en Banco usa create_banco_movimiento con tipo ingreso o egreso, monto, motivo y fecha opcional (YYYY-MM-DD). Sin fecha → hoy.",
+          "Toda cifra o movimiento de Banco debe salir de query_banco o confirmarse con create_banco_movimiento. Prohibido inventar.",
+          "Sin período explícito en ingresos/egresos de Banco → periodo=hoy. Cada pregunta de otro día o rango → nueva query_banco; no mezcles consultas.",
+          "Si el usuario pide PDF de Banco, consulta primero con query_banco y luego generate_report_pdf con source=banco.",
+
           // ATLAS — sistema financiero de préstamos
           "Atlas es el sistema financiero de préstamos de la empresa (Multipréstamos): caja, créditos, cuotas, cobros, mora, clientes, ingresos, egresos y desembolsos.",
-          "Si el usuario dice Atlas, multipréstamos, multiprestamos, préstamos, la caja, cobros, mora, morosos, clientes del negocio, créditos o finanzas del negocio, entiende que habla de Atlas y usa query_prestamo.",
+          "Si el usuario dice Atlas, multipréstamos, multiprestamos, préstamos, cobros, mora, morosos, clientes del negocio, créditos o finanzas del negocio de préstamos, entiende que habla de Atlas y usa query_prestamo.",
+          "Si dice solo «la caja» o «caja chica» sin más contexto: Banco si parece finanzas personales/de la app; Atlas si menciona cobros, cuotas, clientes o multipréstamos.",
           "«Agenda de cobros» o «quién viene a pagar» es Atlas (cuotas/cobros), no la agenda personal de tareas. «Mi agenda» o «mis pendientes» suele ser list_tasks salvo que el contexto sea claramente financiero.",
           "Toda cifra, lista, nombre de cliente o movimiento de Atlas debe salir exclusivamente de query_prestamo en esa respuesta. Prohibido inventar, estimar o reutilizar datos de consultas anteriores sin una nueva llamada a la herramienta.",
           "Preguntas sobre quién viene a pagar, cobros del día, cuotas que vencen hoy/mañana, morosos, clientes, créditos, ingresos, egresos o pagos → query_prestamo.",
@@ -183,12 +193,12 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           "Si query_prestamo falla o no hay datos, dilo con claridad. Prohibido decir que no tienes acceso si la tool puede obtener la información.",
 
           // PANEL DE CHAT (transcripción + tablas solo en listados)
-          "PANEL DE CHAT: la app muestra tu transcripción. Solo cuando hay un listado de registros (tareas, cuotas, pagos, ingresos, egresos, clientes, créditos, desembolsos) inserta sola una tabla Markdown. En resúmenes (caja, liquidez, KPIs) o cuando hay pocos datos sin lista, el panel muestra lo que tú digas: narra claro y completo.",
+          "PANEL DE CHAT: la app muestra tu transcripción. Solo cuando hay un listado de registros (tareas, cuotas, pagos, ingresos, egresos de Atlas o Banco, clientes, créditos, desembolsos) inserta sola una tabla Markdown. En resúmenes (caja, liquidez, KPIs) o cuando hay pocos datos sin lista, el panel muestra lo que tú digas: narra claro y completo.",
           "Si la app ya puso una tabla, resume por voz sin dictar filas. Si no hay tabla (p. ej. saldo de caja), tu respuesta hablada es lo que el usuario lee en el chat.",
 
           // REPORTES PDF
-          "REPORTES PDF: tienes generate_report_pdf. NO reconstruyas filas ni pases un report enorme en el JSON: la app ya guardó los datos de list_tasks/query_prestamo de esta sesión.",
-          "Para un PDF tras consultar, llama generate_report_pdf con title (obligatorio) y opcionalmente subtitle, fileName, source. source: last (default), tasks, prestamo o all (todo lo consultado en la sesión).",
+          "REPORTES PDF: tienes generate_report_pdf. NO reconstruyas filas ni pases un report enorme en el JSON: la app ya guardó los datos de list_tasks/query_prestamo/query_banco de esta sesión.",
+          "Para un PDF tras consultar, llama generate_report_pdf con title (obligatorio) y opcionalmente subtitle, fileName, source. source: last (default), tasks, prestamo (Atlas), banco o all (todo lo consultado en la sesión).",
           "El PDF es solo datos/resultados, nunca la conversación. Si piden PDF y aún no hay consulta, consulta primero y luego genera.",
           "Tras ok, confirma breve que el PDF está en el chat. Si falla, dilo claro.",
         ].join(" "),
@@ -317,6 +327,72 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
           },
           {
             type: "function",
+            name: "query_banco",
+            description:
+              "Consulta Banco (caja chica, ingresos, egresos de EC Assistant). Devuelve JSON del período. Cada pregunta requiere una llamada nueva; responde solo con esta consulta.",
+            parameters: {
+              type: "object",
+              properties: {
+                resource: {
+                  type: "string",
+                  enum: ["caja-chica", "ingresos", "egresos", "movimientos"],
+                  description:
+                    "caja-chica = saldo y totales. ingresos/egresos = listado de movimientos. movimientos = ingresos y egresos juntos.",
+                },
+                params: {
+                  type: "object",
+                  description:
+                    "Filtros de período. Usa periodo para expresiones relativas (hoy, este mes, etc.); la app las convierte a fechas.",
+                  properties: {
+                    periodo: {
+                      type: "string",
+                      description:
+                        "Período relativo: hoy, ayer, esta semana, semana pasada, este mes, mes pasado, este año, año pasado.",
+                    },
+                    fecha: {
+                      type: "string",
+                      description: "Un solo día YYYY-MM-DD o expresión relativa (hoy, ayer).",
+                    },
+                    fechaInicio: { type: "string", description: "Inicio del rango YYYY-MM-DD." },
+                    fechaFin: { type: "string", description: "Fin del rango YYYY-MM-DD." },
+                    limit: { type: "integer", description: "Máximo de filas en listados (default 100)." },
+                  },
+                },
+              },
+              required: ["resource"],
+            },
+          },
+          {
+            type: "function",
+            name: "create_banco_movimiento",
+            description:
+              "Registra un ingreso o egreso en Banco (caja chica de EC Assistant). Requiere tipo, monto y motivo.",
+            parameters: {
+              type: "object",
+              properties: {
+                tipo: {
+                  type: "string",
+                  enum: ["ingreso", "egreso"],
+                  description: "ingreso o egreso.",
+                },
+                monto: {
+                  type: "number",
+                  description: "Monto mayor a cero.",
+                },
+                motivo: {
+                  type: "string",
+                  description: "Descripción breve del movimiento.",
+                },
+                fecha: {
+                  type: "string",
+                  description: "Fecha YYYY-MM-DD. Omítela para usar hoy.",
+                },
+              },
+              required: ["tipo", "monto", "motivo"],
+            },
+          },
+          {
+            type: "function",
             name: "query_prestamo",
             description:
               "Consulta Atlas (caja, cuotas, créditos, clientes, ingresos, egresos, mora, cobros). Devuelve JSON del período. Cada pregunta o follow-up de detalle requiere una llamada nueva; responde solo con esta consulta.",
@@ -387,7 +463,7 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
             type: "function",
             name: "generate_report_pdf",
             description:
-              "Genera un PDF con los datos ya obtenidos en esta sesión (list_tasks o query_prestamo). No reenvíes las filas: la app las toma del caché. Úsala cuando el usuario pida un PDF/reporte. Devuelve url y fileName.",
+              "Genera un PDF con los datos ya obtenidos en esta sesión (list_tasks, query_prestamo o query_banco). No reenvíes las filas: la app las toma del caché. Úsala cuando el usuario pida un PDF/reporte. Devuelve url y fileName.",
             parameters: {
               type: "object",
               properties: {
@@ -405,9 +481,9 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
                 },
                 source: {
                   type: "string",
-                  enum: ["last", "tasks", "prestamo", "all"],
+                  enum: ["last", "tasks", "prestamo", "banco", "all"],
                   description:
-                    "De dónde sacar los datos: last (última consulta, default), tasks, prestamo (Atlas) o all (consolidado de la sesión).",
+                    "De dónde sacar los datos: last (última consulta, default), tasks, prestamo (Atlas), banco o all (consolidado de la sesión).",
                 },
               },
               required: ["title"],

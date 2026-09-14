@@ -1,5 +1,5 @@
 export type SessionToolSnapshot = {
-  tool: "list_tasks" | "query_prestamo"
+  tool: "list_tasks" | "query_prestamo" | "query_banco"
   at: number
   output: Record<string, unknown>
 }

@@ -369,3 +369,85 @@ export const ensureAttachmentsTable = async () => {
     await pool.query("ALTER TABLE task_attachments ADD COLUMN thumb_filename VARCHAR(512) NULL")
   }
 }
+
+export const BANCO_TIPOS = ["ingreso", "egreso"] as const
+
+export type BancoTipo = (typeof BANCO_TIPOS)[number]
+
+export type BancoMovimientoRow = RowDataPacket & {
+  id: number
+  user_id: number
+  tipo: BancoTipo
+  monto: string
+  motivo: string
+  fecha: string
+  created_at: Date
+}
+
+export type PublicBancoMovimiento = {
+  id: number
+  tipo: BancoTipo
+  monto: number
+  motivo: string
+  fecha: string
+  createdAt: string
+}
+
+export const parseBancoTipo = (value: unknown): BancoTipo | null => {
+  if (typeof value !== "string") {
+    return null
+  }
+  const normalized = value.trim().toLowerCase()
+  return BANCO_TIPOS.includes(normalized as BancoTipo) ? (normalized as BancoTipo) : null
+}
+
+export const parseBancoMonto = (value: unknown): number | null => {
+  const amount = typeof value === "number" ? value : Number(value)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null
+  }
+  return Math.round(amount * 100) / 100
+}
+
+export const parseBancoFecha = (value: unknown): string | null => {
+  if (typeof value !== "string") {
+    return null
+  }
+  const trimmed = value.trim()
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null
+}
+
+const formatBancoFecha = (value: string | Date): string => {
+  if (value instanceof Date) {
+    const pad = (n: number) => String(n).padStart(2, "0")
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`
+  }
+  return value.slice(0, 10)
+}
+
+export const toPublicBancoMovimiento = (row: BancoMovimientoRow): PublicBancoMovimiento => ({
+  id: row.id,
+  tipo: row.tipo,
+  monto: Number(row.monto),
+  motivo: row.motivo,
+  fecha: formatBancoFecha(row.fecha as string | Date),
+  createdAt: row.created_at.toISOString(),
+})
+
+export const ensureBancoTables = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS banco_movimientos (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      user_id INT UNSIGNED NOT NULL,
+      tipo ENUM('ingreso', 'egreso') NOT NULL,
+      monto DECIMAL(12, 2) NOT NULL,
+      motivo VARCHAR(500) NOT NULL,
+      fecha DATE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_banco_user (user_id),
+      INDEX idx_banco_fecha (fecha),
+      INDEX idx_banco_tipo (tipo),
+      CONSTRAINT fk_banco_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `)
+}
