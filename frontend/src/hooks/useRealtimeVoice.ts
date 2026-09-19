@@ -8,7 +8,7 @@ import {
 } from "@/audio/audioSession"
 import { api } from "@/lib/api"
 import { handleAssistantChatEvent } from "@/lib/assistantChatEvents"
-import { sendConnectGreeting } from "@/assistant/runtime/greeting"
+import { buildConnectGreeting, sendConnectGreeting } from "@/assistant/runtime/greeting"
 import { handleRealtimeToolEvent } from "@/lib/realtimeTools"
 import { clearSessionToolData } from "@/lib/sessionToolData"
 import { useAssistantChatMessages } from "@/hooks/useAssistantChatMessages"
@@ -550,10 +550,9 @@ export const useRealtimeVoice = () => {
         return
       }
 
-      greetingInstruction = session.greetingInstruction?.trim() ?? ""
-      if (!greetingInstruction) {
-        throw new Error("No se recibió el prompt de saludo del servidor")
-      }
+      greetingInstruction =
+        session.greetingInstruction?.trim() ||
+        buildConnectGreeting(session.userName?.trim() || "ahí")
 
       await peer.setRemoteDescription({ type: "answer", sdp: session.sdp })
       tryGreet()
