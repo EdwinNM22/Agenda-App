@@ -75,7 +75,7 @@ export const buildRealtimeSession = (userName: string, voice: RealtimeVoice): Re
         type: "semantic_vad",
         eagerness: "low",
         interrupt_response: true,
-        create_response: false,
+        create_response: true,
       },
     },
     output: {

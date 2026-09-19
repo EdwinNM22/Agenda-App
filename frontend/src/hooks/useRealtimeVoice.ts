@@ -271,6 +271,7 @@ export const useRealtimeVoice = () => {
       let greetingResponseOpen = false
       let greetingWatchdog = 0
       let greetingRetryUsed = false
+      let userTurnFallbackTimer = 0
 
       const setListening = (createResponse: boolean, channel: RTCDataChannel | null) => {
         if (channel?.readyState === "open") {
@@ -295,12 +296,13 @@ export const useRealtimeVoice = () => {
       }
 
       const finishGreeting = () => {
-        if (!greetingPlayingRef.current) {
+        if (!greetedRef.current) {
           return
         }
         greetingPlayingRef.current = false
+        greetingResponseOpen = false
         logIsi("abrió el turno después del saludo")
-        setListening(true, greetChannelRef.current)
+        setListening(true, greetChannelRef.current ?? channelRef.current)
         syncBusy()
       }
 
@@ -445,8 +447,31 @@ export const useRealtimeVoice = () => {
             if (heard) {
               lastUserTranscriptRef.current = heard
             }
+            if (greetedRef.current && !greetingPlayingRef.current) {
+              window.clearTimeout(userTurnFallbackTimer)
+              userTurnFallbackTimer = window.setTimeout(() => {
+                if (generation !== generationRef.current) {
+                  return
+                }
+                if (
+                  responseOpenRef.current > 0 ||
+                  awaitingResponseRef.current ||
+                  toolsInFlightRef.current > 0 ||
+                  greetingPlayingRef.current
+                ) {
+                  return
+                }
+                if (channel.readyState !== "open") {
+                  return
+                }
+                logIsi("fallback: creando respuesta tras turno del usuario")
+                setListening(true, channel)
+                channel.send(JSON.stringify({ type: "response.create" }))
+              }, 900)
+            }
           }
           if (type === "response.created") {
+            window.clearTimeout(userTurnFallbackTimer)
             window.clearTimeout(awaitingTimerRef.current)
             awaitingResponseRef.current = false
             responseOpenRef.current += 1
