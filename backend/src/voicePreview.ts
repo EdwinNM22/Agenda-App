@@ -1,4 +1,8 @@
 import { config } from "./config.js"
+import {
+  buildVoicePreviewInput,
+  VOICE_PREVIEW_INSTRUCTIONS,
+} from "./assistant/prompts/voice-preview.js"
 import { DEFAULT_VOICE, isRealtimeVoice, type RealtimeVoice } from "./voices.js"
 
 const previewCache = new Map<string, Buffer>()
@@ -19,8 +23,8 @@ const synthesizePreview = async (voice: RealtimeVoice, name: string) => {
     body: JSON.stringify({
       model: "gpt-4o-mini-tts",
       voice,
-      input: `Hola ${firstName(name)}, ¿en qué te puedo ayudar hoy?`,
-      instructions: "Habla en español, cercano, natural y breve. Suena como un saludo de asistente.",
+      input: buildVoicePreviewInput(firstName(name)),
+      instructions: VOICE_PREVIEW_INSTRUCTIONS,
     }),
   })
 

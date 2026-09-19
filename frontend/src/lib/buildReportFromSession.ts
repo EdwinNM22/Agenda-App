@@ -1,5 +1,5 @@
-import type { SessionToolSnapshot } from "@/lib/sessionToolData"
-import { getLatestSessionToolData, getSessionToolSnapshots } from "@/lib/sessionToolData"
+import type { SessionToolSnapshot } from "@/assistant/shared/session-cache"
+import { getLatestSessionToolData, getSessionToolSnapshots } from "@/assistant/shared/session-cache"
 
 type ReportColumn = { key: string; label: string }
 type ReportRow = Record<string, string | number | null | undefined>

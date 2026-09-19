@@ -8,6 +8,7 @@ import {
 } from "@/audio/audioSession"
 import { api } from "@/lib/api"
 import { handleAssistantChatEvent } from "@/lib/assistantChatEvents"
+import { sendConnectGreeting } from "@/assistant/runtime/greeting"
 import { handleRealtimeToolEvent } from "@/lib/realtimeTools"
 import { clearSessionToolData } from "@/lib/sessionToolData"
 import { useAssistantChatMessages } from "@/hooks/useAssistantChatMessages"
@@ -237,7 +238,7 @@ export const useRealtimeVoice = () => {
     setStatus("idle")
   }, [releaseCall])
 
-  const start = useCallback(async (voice: RealtimeVoice, userName?: string) => {
+  const start = useCallback(async (voice: RealtimeVoice) => {
     const generation = generationRef.current + 1
     generationRef.current = generation
     peerRef.current?.close()
@@ -264,7 +265,7 @@ export const useRealtimeVoice = () => {
         peer.addTrack(track, micStream)
       })
 
-      const greetName = userName?.trim() || "ahí"
+      let greetingInstruction = ""
       const greetChannelRef = { current: null as RTCDataChannel | null }
       let remoteReady = false
       let greetingResponseOpen = false
@@ -303,7 +304,7 @@ export const useRealtimeVoice = () => {
 
       const tryGreet = () => {
         const channel = greetChannelRef.current
-        if (greetedRef.current || !remoteReady || !channel || channel.readyState !== "open") {
+        if (greetedRef.current || !remoteReady || !channel || channel.readyState !== "open" || !greetingInstruction) {
           return
         }
         greetedRef.current = true
@@ -312,14 +313,7 @@ export const useRealtimeVoice = () => {
         syncBusy()
         logIsi("envió el saludo inicial")
         setListening(false, channel)
-        channel.send(
-          JSON.stringify({
-            type: "response.create",
-            response: {
-              instructions: `Acaba de empezar la llamada. Saluda a ${greetName} en una sola frase, cercana y breve. Preséntate como Isi. No listes funciones ni preguntes qué puede hacer. No sigas hablando después. Espera en silencio a que te hablen.`,
-            },
-          }),
-        )
+        sendConnectGreeting(channel, greetingInstruction)
         window.setTimeout(() => {
           if (generation !== generationRef.current) {
             return
@@ -368,7 +362,6 @@ export const useRealtimeVoice = () => {
                   input: {
                     transcription: {
                       model: "whisper-1",
-                      language: "es",
                     },
                   },
                 },
@@ -545,16 +538,25 @@ export const useRealtimeVoice = () => {
         throw new Error("No se pudo crear la oferta WebRTC")
       }
 
-      const session = await api<{ sdp: string }>("/realtime/session", {
-        method: "POST",
-        body: JSON.stringify({ sdp: localSdp, voice }),
-      })
+      const session = await api<{ sdp: string; userName?: string; greetingInstruction?: string }>(
+        "/realtime/session",
+        {
+          method: "POST",
+          body: JSON.stringify({ sdp: localSdp, voice }),
+        },
+      )
 
       if (generation !== generationRef.current) {
         return
       }
 
+      greetingInstruction = session.greetingInstruction?.trim() ?? ""
+      if (!greetingInstruction) {
+        throw new Error("No se recibió el prompt de saludo del servidor")
+      }
+
       await peer.setRemoteDescription({ type: "answer", sdp: session.sdp })
+      tryGreet()
       setStatus("live")
     } catch (err) {
       if (generation !== generationRef.current) {

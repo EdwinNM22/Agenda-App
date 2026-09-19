@@ -11,7 +11,6 @@ import {
 import { useAudioLevel } from "@/hooks/useAudioLevel"
 import { useRealtimeVoice, type AssistantMessage, type ToolActivity, type VoiceStatus } from "@/hooks/useRealtimeVoice"
 import { useSilenceHangup } from "@/hooks/useSilenceHangup"
-import { useAuth } from "@/lib/auth"
 import {
   DEFAULT_VOICE,
   isRealtimeVoice,
@@ -48,7 +47,6 @@ const loadSavedVoice = (): RealtimeVoice => {
 }
 
 export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useAuth()
   const { status, error, start: startSession, hangUp, audioRef, localStream, remoteStream, busy, hearingUser, activity, messages } =
     useRealtimeVoice()
   const voiceLevel = useAudioLevel(remoteStream)
@@ -68,9 +66,9 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
 
   const start = useCallback(
     async (nextVoice?: RealtimeVoice) => {
-      await startSession(nextVoice ?? voice, user?.name ?? "")
+      await startSession(nextVoice ?? voice)
     },
-    [startSession, user?.name, voice],
+    [startSession, voice],
   )
 
   useSilenceHangup(live, userLevel, voiceLevel, hangUp, busy || hearingUser)

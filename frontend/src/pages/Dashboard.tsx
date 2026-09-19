@@ -62,7 +62,7 @@ export const DashboardPage = () => {
     listenForWake: true,
     listenForHangup: false,
     onWake: () => {
-      void start(voice, user?.name ?? "")
+      void start(voice)
     },
     onHangup: hangUp,
   })
@@ -152,7 +152,7 @@ export const DashboardPage = () => {
           <Button
             type="button"
             size="lg"
-            onClick={() => start(voice, user?.name ?? "")}
+            onClick={() => start(voice)}
             disabled={status === "connecting"}
           >
             <Mic data-icon="inline-start" />
