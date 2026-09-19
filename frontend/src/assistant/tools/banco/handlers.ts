@@ -69,7 +69,7 @@ const enrichBancoResult = (
   resource,
   periodoConsultado: bancoPeriodFromQuery(query),
   instruccion:
-    "Responde solo con los datos de esta respuesta y periodoConsultado. No combines con consultas anteriores.",
+    "Answer using only this response and periodoConsultado. Do not mix prior queries. Speak in the user's language (same as their last message).",
 })
 
 const slimBancoMovimiento = (item: unknown): Record<string, unknown> | unknown => {
@@ -215,7 +215,7 @@ export const runCreateBancoMovimiento = async (
       ok: true,
       tipo,
       movimiento: slimBancoMovimiento(result.movimiento),
-      instruccion: "Confirma brevemente el movimiento registrado en Banco.",
+      instruccion: "Briefly confirm the Banco movement in the user's language.",
     })
   } catch (error) {
     return finishTool(channel, callId, {

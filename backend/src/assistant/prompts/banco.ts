@@ -7,4 +7,5 @@ export const BANCO_INSTRUCTIONS: string[] = [
   "Toda cifra o movimiento de Banco debe salir de query_banco o confirmarse con create_banco_movimiento. Prohibido inventar.",
   "Sin período explícito en ingresos/egresos de Banco → periodo=hoy. Cada pregunta de otro día o rango → nueva query_banco; no mezcles consultas.",
   "Si el usuario pide PDF de Banco, consulta primero con query_banco y luego generate_report_pdf con source=banco.",
+  "Si el usuario habla en inglés, narra resultados de Banco en inglés aunque los datos vengan en español.",
 ]

@@ -1,3 +1,4 @@
+import { VOICE_REPLY_LANGUAGE_INSTRUCTION } from "../runtime/reply-language"
 import type { ToolRunResult } from "./types.js"
 
 export const sendEvent = (channel: RTCDataChannel, payload: unknown) => {
@@ -16,7 +17,12 @@ export const sendToolResult = (channel: RTCDataChannel, callId: string, output: 
       output: JSON.stringify(output),
     },
   })
-  sendEvent(channel, { type: "response.create" })
+  sendEvent(channel, {
+    type: "response.create",
+    response: {
+      instructions: VOICE_REPLY_LANGUAGE_INSTRUCTION,
+    },
+  })
 }
 
 export const finishTool = (

@@ -24,5 +24,6 @@ export const buildAtlasInstructions = (ctx: SessionContext): string[] => [
   "Responde solo lo que preguntaron. Si piden el saldo o cuánto hay en caja, da la cifra del período y termina; no desgloses movimientos salvo que lo pidan.",
   "Para análisis (ingresos vs egresos, mora, liquidez) interpreta los datos consultados; no memorices respuestas ni sugieras pasos siguientes que el usuario no pidió.",
   "CRÉDITOS Y DESEMBOLSOS: al responder sobre un crédito o desembolso di solo el nombre del cliente (usuario) y el monto (montoDesembolsar o monto); pregunta si quiere más detalle antes de mencionar frecuencia, fechaDesembolsado, totalCuotas, cuotaMensual, cuotasPagadas, cuotasPendientes, cuotasVencidas, montoRealPagado, totalPendiente, totalVencido u otros campos. Si confirma o pregunta algo concreto, entonces detállalo. En listados de varios, nombre y monto de cada uno de forma breve y ofrece profundizar en uno. Para el desglose cuota por cuota consulta creditos o desembolsos con params.id.",
-  "Si query_prestamo falla o no hay datos, dilo con claridad. Prohibido decir que no tienes acceso si la tool puede obtener la información.",
+  "Si query_prestamo falla o no hay datos, dilo con claridad en el idioma del usuario. Prohibido decir que no tienes acceso si la tool puede obtener la información.",
+  "Si el usuario preguntó en inglés, narra cifras y resultados de Atlas en inglés aunque los datos vengan en español.",
 ]

@@ -85,7 +85,7 @@ export const runGenerateReportPdf = async (
       title: result.title,
       bytes: result.bytes,
       instruccion:
-        "El PDF ya está disponible en el chat del usuario. Confirma breve por voz. No leas el contenido completo del PDF.",
+        "The PDF is in the user's chat. Confirm briefly in the user's language. Do not read the full PDF aloud.",
     })
   } catch (error) {
     console.warn("[Isi] generate_report_pdf API error", error)

@@ -269,6 +269,8 @@ export const useRealtimeVoice = () => {
       const greetChannelRef = { current: null as RTCDataChannel | null }
       let remoteReady = false
       let greetingResponseOpen = false
+      let greetingWatchdog = 0
+      let greetingRetryUsed = false
 
       const setListening = (createResponse: boolean, channel: RTCDataChannel | null) => {
         if (channel?.readyState === "open") {
@@ -302,9 +304,9 @@ export const useRealtimeVoice = () => {
         syncBusy()
       }
 
-      const tryGreet = () => {
+      const attemptConnectGreeting = () => {
         const channel = greetChannelRef.current
-        if (greetedRef.current || !remoteReady || !channel || channel.readyState !== "open" || !greetingInstruction) {
+        if (greetedRef.current || !channel || channel.readyState !== "open" || !greetingInstruction.trim()) {
           return
         }
         greetedRef.current = true
@@ -314,12 +316,23 @@ export const useRealtimeVoice = () => {
         logIsi("envió el saludo inicial")
         setListening(false, channel)
         sendConnectGreeting(channel, greetingInstruction)
-        window.setTimeout(() => {
-          if (generation !== generationRef.current) {
+        window.clearTimeout(greetingWatchdog)
+        greetingWatchdog = window.setTimeout(() => {
+          if (generation !== generationRef.current || !greetingPlayingRef.current) {
+            return
+          }
+          if (greetingResponseOpen && !greetingRetryUsed) {
+            greetingRetryUsed = true
+            logIsi("reintentando saludo: no hubo audio de respuesta")
+            greetedRef.current = false
+            greetingResponseOpen = false
+            greetingPlayingRef.current = false
+            syncBusy()
+            attemptConnectGreeting()
             return
           }
           finishGreeting()
-        }, 10000)
+        }, 12_000)
       }
 
       peer.ontrack = (event) => {
@@ -338,19 +351,14 @@ export const useRealtimeVoice = () => {
           audio.srcObject = remote
           void audio.play().catch(() => {})
         }
-        window.setTimeout(() => {
-          if (generation !== generationRef.current) {
-            return
-          }
-          tryGreet()
-        }, 280)
+        attemptConnectGreeting()
       }
 
       const attachChannel = (channel: RTCDataChannel, canGreet: boolean) => {
         if (!channelRef.current) {
           channelRef.current = channel
         }
-        const enableTranscription = () => {
+        const primeSession = () => {
           if (channel.readyState !== "open") {
             return
           }
@@ -363,6 +371,12 @@ export const useRealtimeVoice = () => {
                     transcription: {
                       model: "whisper-1",
                     },
+                    turn_detection: {
+                      type: "semantic_vad",
+                      eagerness: "low",
+                      interrupt_response: true,
+                      create_response: false,
+                    },
                   },
                 },
               },
@@ -372,14 +386,14 @@ export const useRealtimeVoice = () => {
         if (canGreet) {
           greetChannelRef.current = channel
           if (channel.readyState === "open") {
-            enableTranscription()
-            tryGreet()
+            primeSession()
+            attemptConnectGreeting()
           } else {
             channel.addEventListener(
               "open",
               () => {
-                enableTranscription()
-                tryGreet()
+                primeSession()
+                attemptConnectGreeting()
               },
               { once: true },
             )
@@ -450,12 +464,13 @@ export const useRealtimeVoice = () => {
             syncBusy()
             if (greetingResponseOpen) {
               greetingResponseOpen = false
+              window.clearTimeout(greetingWatchdog)
               window.setTimeout(() => {
                 if (generation !== generationRef.current) {
                   return
                 }
                 finishGreeting()
-              }, 1800)
+              }, 400)
             }
           }
           handleAssistantChatEvent(record, chatController.current)
@@ -555,7 +570,7 @@ export const useRealtimeVoice = () => {
         buildConnectGreeting(session.userName?.trim() || "ahí")
 
       await peer.setRemoteDescription({ type: "answer", sdp: session.sdp })
-      tryGreet()
+      attemptConnectGreeting()
       setStatus("live")
     } catch (err) {
       if (generation !== generationRef.current) {

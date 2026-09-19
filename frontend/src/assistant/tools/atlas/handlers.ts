@@ -77,7 +77,7 @@ const enrichPrestamoResult = (
     resource,
     periodoConsultado,
     instruccion:
-      "Responde solo con los datos de esta respuesta y periodoConsultado. No combines ni sumes con consultas anteriores de la conversación.",
+      "Answer using only this response and periodoConsultado. Do not mix prior queries. Speak in the user's language (same as their last message).",
   }
 }
 
