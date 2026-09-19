@@ -5,7 +5,7 @@ export const BANCO_TOOLS: RealtimeTool[] = [
     type: "function",
     name: "query_banco",
     description:
-      "Consulta Banco (caja chica, ingresos, egresos de EC Assistant). Devuelve JSON del período. Cada pregunta requiere una llamada nueva; responde solo con esta consulta.",
+      "Consulta Banco (caja chica de EC Assistant). caja-chica = totales y saldo. ingresos/egresos/movimientos = filas con monto, fecha, motivo, registradoPor (egresos: destinoLabel). Cada pregunta = una llamada nueva.",
     parameters: {
       type: "object",
       properties: {
@@ -13,12 +13,12 @@ export const BANCO_TOOLS: RealtimeTool[] = [
           type: "string",
           enum: ["caja-chica", "ingresos", "egresos", "movimientos"],
           description:
-            "caja-chica = saldo y totales. ingresos/egresos = listado de movimientos. movimientos = ingresos y egresos juntos.",
+            "caja-chica: saldo y totales agregados (sin motivo). ingresos/egresos: movimientos de ese tipo con motivo. movimientos: ingresos y egresos juntos.",
         },
         params: {
           type: "object",
           description:
-            "Filtros de período. Usa periodo para expresiones relativas (hoy/today, este mes/this month, etc.); la app las convierte a fechas.",
+            "Filtros opcionales de período (periodo, fecha, fechaInicio/fechaFin, limit). Omite período para listar movimientos recientes sin acotar a un solo día.",
           properties: {
             periodo: {
               type: "string",
@@ -31,7 +31,7 @@ export const BANCO_TOOLS: RealtimeTool[] = [
             },
             fechaInicio: { type: "string", description: "Inicio del rango YYYY-MM-DD." },
             fechaFin: { type: "string", description: "Fin del rango YYYY-MM-DD." },
-            limit: { type: "integer", description: "Máximo de filas en listados (default 100)." },
+            limit: { type: "integer", description: "Máximo de filas en listados (default 100, máx. 500)." },
           },
         },
       },
@@ -42,7 +42,7 @@ export const BANCO_TOOLS: RealtimeTool[] = [
     type: "function",
     name: "create_banco_movimiento",
     description:
-      "Registra un ingreso o egreso en Banco (caja chica compartida). Egreso requiere destino; por ahora solo crea el movimiento en esta app.",
+      "Registra un ingreso o egreso en Banco. El motivo describe qué es el movimiento. Egreso requiere destino.",
     parameters: {
       type: "object",
       properties: {
@@ -57,13 +57,13 @@ export const BANCO_TOOLS: RealtimeTool[] = [
         },
         motivo: {
           type: "string",
-          description: "Motivo o descripción del movimiento.",
+          description: "Descripción de qué es el movimiento (obligatorio).",
         },
         destino: {
           type: "string",
           enum: ["ec_construction", "multiprestamos_atlas"],
           description:
-            "Obligatorio si tipo=egreso. ec_construction = EC Construction; multiprestamos_atlas = Multipréstamos Atlas (prestamo-nuevo).",
+            "Obligatorio si tipo=egreso. ec_construction = EC Construction; multiprestamos_atlas = Multipréstamos Atlas.",
         },
         fecha: {
           type: "string",

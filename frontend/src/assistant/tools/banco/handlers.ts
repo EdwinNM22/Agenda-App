@@ -22,18 +22,8 @@ const toQueryString = (params: Record<string, string>): string => {
   return qs ? `?${qs}` : ""
 }
 
-const toBancoQueryParams = (
-  params: Record<string, unknown> | undefined,
-  resource: string,
-): Record<string, string> => {
-  let normalized = normalizePrestamoParams(params) ?? {}
-  if (
-    (resource === "ingresos" || resource === "egresos" || resource === "movimientos") &&
-    !normalized.fecha &&
-    !normalized.fechaInicio
-  ) {
-    normalized = normalizePrestamoParams({ ...(params ?? {}), periodo: "hoy" }) ?? {}
-  }
+const toBancoQueryParams = (params: Record<string, unknown> | undefined): Record<string, string> => {
+  const normalized = normalizePrestamoParams(params) ?? {}
 
   const query: Record<string, string> = {}
   if (typeof normalized.fecha === "string" && normalized.fecha) {
@@ -63,14 +53,27 @@ const enrichBancoResult = (
   result: Record<string, unknown>,
   resource: string,
   query: Record<string, string>,
-): Record<string, unknown> => ({
-  ...result,
-  ok: true,
-  resource,
-  periodoConsultado: bancoPeriodFromQuery(query),
-  instruccion:
-    "Answer using only this response and periodoConsultado. Do not mix prior queries. Speak in the user's language (same as their last message).",
-})
+): Record<string, unknown> => {
+  const listResource = resource === "ingresos" || resource === "egresos" || resource === "movimientos"
+  return {
+    ...result,
+    ok: true,
+    resource,
+    periodoConsultado: bancoPeriodFromQuery(query),
+    contenido: listResource
+      ? {
+          tipo: "movimientos",
+          campos: ["monto", "motivo", "fecha", "tipo", "registradoPor", "destinoLabel"],
+        }
+      : {
+          tipo: "resumen",
+          campos: ["cajaChica", "totalIngresos", "totalEgresos", "periodo"],
+          nota: "Sin filas ni motivo; usa resource ingresos, egresos o movimientos para el detalle.",
+        },
+    instruccion:
+      "Answer using only this response and periodoConsultado. Do not mix prior queries. Speak in the user's language (same as their last message).",
+  }
+}
 
 const slimBancoMovimiento = (item: unknown): Record<string, unknown> | unknown => {
   if (!item || typeof item !== "object") {
@@ -120,7 +123,7 @@ export const runQueryBanco = async (
       })
     }
 
-    const query = toBancoQueryParams(parsed.params, resource)
+    const query = toBancoQueryParams(parsed.params)
 
     if (resource === "caja-chica") {
       const data = await queryBancoApi("resumen", query)

@@ -204,6 +204,10 @@ export const formatToolResultMarkdown = (
     return formatQueryPrestamo(output)
   }
   if (toolName === "query_banco") {
+    const resource = typeof output.resource === "string" ? output.resource : ""
+    if (resource === "caja-chica") {
+      return null
+    }
     return formatQueryPrestamo(output)
   }
   return null

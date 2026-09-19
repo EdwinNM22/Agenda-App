@@ -22,6 +22,8 @@ export type ToolActivity =
   | "update_task"
   | "delete_task"
   | "query_prestamo"
+  | "query_banco"
+  | "create_banco_movimiento"
   | "generate_report_pdf"
   | null
 
@@ -32,6 +34,8 @@ const TOOL_ACTIVITY = new Set([
   "update_task",
   "delete_task",
   "query_prestamo",
+  "query_banco",
+  "create_banco_movimiento",
   "generate_report_pdf",
 ])
 
@@ -41,6 +45,9 @@ const pickActivity = (names: string[]): ToolActivity => {
   }
   if (names.includes("query_prestamo")) {
     return "query_prestamo"
+  }
+  if (names.includes("query_banco") || names.includes("create_banco_movimiento")) {
+    return "query_banco"
   }
   if (names.includes("create_task")) {
     return "create_task"
