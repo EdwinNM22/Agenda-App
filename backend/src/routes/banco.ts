@@ -1,13 +1,13 @@
 import type { FastifyInstance } from "fastify"
 import type { ResultSetHeader, RowDataPacket } from "mysql2"
 import {
-  parseBancoDestino,
+  parseBancoEgresoDestino,
   parseBancoFecha,
+  parseBancoIngresoTipo,
   parseBancoMonto,
   parseBancoTipo,
   pool,
   toPublicBancoMovimiento,
-  type BancoDestino,
   type BancoMovimientoRow,
   type BancoTipo,
 } from "../db.js"
@@ -18,6 +18,7 @@ type MovimientoBody = {
   monto?: number
   motivo?: string
   destino?: string
+  ingresoTipo?: string
   fecha?: string
 }
 
@@ -106,6 +107,8 @@ const validateMovimientoBody = (body: MovimientoBody, tipoOverride?: BancoTipo) 
   const motivo = typeof body.motivo === "string" ? body.motivo.trim() : ""
   const fecha = parseBancoFecha(body.fecha) ?? formatDateOnly(new Date())
   const destinoRaw = body.destino !== undefined ? body.destino : undefined
+  const ingresoTipoRaw =
+    body.ingresoTipo !== undefined ? body.ingresoTipo : tipo === "ingreso" ? destinoRaw : undefined
 
   if (!tipo) {
     return { error: "Tipo inválido. Usa ingreso o egreso." as const }
@@ -120,16 +123,23 @@ const validateMovimientoBody = (body: MovimientoBody, tipoOverride?: BancoTipo) 
     return { error: "El motivo no puede superar 500 caracteres." as const }
   }
 
-  let destino: BancoDestino | null = null
+  let destino: string | null = null
   if (tipo === "egreso") {
-    destino = parseBancoDestino(destinoRaw)
-    if (!destino) {
+    const parsedDestino = parseBancoEgresoDestino(destinoRaw)
+    if (!parsedDestino) {
       return {
-        error: "Destino inválido. Usa EC Construction o Multipréstamos Atlas.",
+        error: "Destino inválido. Usa EC Programming, Atlas o Construccion.",
       } as const
     }
-  } else if (destinoRaw !== undefined && destinoRaw !== null && String(destinoRaw).trim()) {
-    return { error: "El destino solo aplica a egresos." as const }
+    destino = parsedDestino
+  } else {
+    const parsedIngresoTipo = parseBancoIngresoTipo(ingresoTipoRaw)
+    if (!parsedIngresoTipo) {
+      return {
+        error: "Tipo inválido. Usa Recibido por Edgar u Otro.",
+      } as const
+    }
+    destino = parsedIngresoTipo
   }
 
   return { tipo, monto, motivo, destino, fecha }
@@ -264,11 +274,12 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
 
       const [result] = await pool.query<ResultSetHeader>(
         `INSERT INTO banco_movimientos (user_id, tipo, monto, motivo, destino, fecha)
-         VALUES (:userId, 'ingreso', :monto, :motivo, NULL, :fecha)`,
+         VALUES (:userId, 'ingreso', :monto, :motivo, :destino, :fecha)`,
         {
           userId: request.user.sub,
           monto: parsed.monto,
           motivo: parsed.motivo,
+          destino: parsed.destino,
           fecha: parsed.fecha,
         },
       )
@@ -343,14 +354,26 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
           : existing.motivo
       const fecha =
         body.fecha !== undefined ? parseBancoFecha(body.fecha) : parseBancoFecha(existing.fecha)
-      const destino =
-        existing.tipo === "egreso"
-          ? body.destino !== undefined
-            ? parseBancoDestino(body.destino)
+      let destino: string | null = null
+      if (existing.tipo === "egreso") {
+        const parsedDestino =
+          body.destino !== undefined
+            ? parseBancoEgresoDestino(body.destino)
             : existing.destino
-              ? parseBancoDestino(existing.destino)
+              ? parseBancoEgresoDestino(existing.destino)
               : null
-          : null
+        destino = parsedDestino
+      } else {
+        const ingresoRaw =
+          body.ingresoTipo !== undefined ? body.ingresoTipo : body.destino !== undefined ? body.destino : undefined
+        const parsedIngresoTipo =
+          ingresoRaw !== undefined
+            ? parseBancoIngresoTipo(ingresoRaw)
+            : existing.destino
+              ? parseBancoIngresoTipo(existing.destino)
+              : null
+        destino = parsedIngresoTipo
+      }
 
       if (monto === null) {
         return reply.code(400).send({ message: "El monto debe ser mayor a cero." })
@@ -366,7 +389,12 @@ export const registerBancoRoutes = async (app: FastifyInstance) => {
       }
       if (existing.tipo === "egreso" && !destino) {
         return reply.code(400).send({
-          message: "Destino inválido. Usa EC Construction o Multipréstamos Atlas.",
+          message: "Destino inválido. Usa EC Programming, Atlas o Construccion.",
+        })
+      }
+      if (existing.tipo === "ingreso" && !destino) {
+        return reply.code(400).send({
+          message: "Tipo inválido. Usa Recibido por Edgar u Otro.",
         })
       }
 

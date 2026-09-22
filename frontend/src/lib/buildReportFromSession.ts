@@ -79,6 +79,7 @@ const PRESTAMO_COLUMNS: ReportColumn[] = [
   { key: "fechaVencimiento", label: "Vence" },
   { key: "fechaDesembolsado", label: "Desembolso" },
   { key: "motivo", label: "Motivo" },
+  { key: "ingresoTipoLabel", label: "Tipo" },
   { key: "destinoLabel", label: "Destino" },
   { key: "registradoPor", label: "Registró" },
   { key: "tipo", label: "Tipo" },

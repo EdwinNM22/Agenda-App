@@ -5,7 +5,7 @@ export const BANCO_TOOLS: RealtimeTool[] = [
     type: "function",
     name: "query_banco",
     description:
-      "Consulta Banco (caja chica de EC Assistant). caja-chica = totales y saldo. ingresos/egresos/movimientos = filas con monto, fecha, motivo, registradoPor (egresos: destinoLabel). Cada pregunta = una llamada nueva.",
+      "Consulta Banco (caja chica de EC Assistant). caja-chica = totales y saldo. ingresos/egresos/movimientos = filas con monto, fecha, motivo, registradoPor (ingresos: ingresoTipoLabel; egresos: destinoLabel). Cada pregunta = una llamada nueva.",
     parameters: {
       type: "object",
       properties: {
@@ -42,7 +42,7 @@ export const BANCO_TOOLS: RealtimeTool[] = [
     type: "function",
     name: "create_banco_movimiento",
     description:
-      "Registra un ingreso o egreso en Banco. El motivo describe qué es el movimiento. Egreso requiere destino.",
+      "Registra un ingreso o egreso en Banco. El motivo describe qué es el movimiento. Ingreso requiere ingresoTipo; egreso requiere destino.",
     parameters: {
       type: "object",
       properties: {
@@ -59,11 +59,17 @@ export const BANCO_TOOLS: RealtimeTool[] = [
           type: "string",
           description: "Descripción de qué es el movimiento (obligatorio).",
         },
+        ingresoTipo: {
+          type: "string",
+          enum: ["recibido_por_edgar", "otro"],
+          description:
+            "Obligatorio si tipo=ingreso. recibido_por_edgar = Recibido por Edgar; otro = Otro.",
+        },
         destino: {
           type: "string",
-          enum: ["ec_construction", "multiprestamos_atlas"],
+          enum: ["ec_programming", "atlas", "construccion"],
           description:
-            "Obligatorio si tipo=egreso. ec_construction = EC Construction; multiprestamos_atlas = Multipréstamos Atlas.",
+            "Obligatorio si tipo=egreso. ec_programming = EC Programming; atlas = Atlas; construccion = Construccion.",
         },
         fecha: {
           type: "string",

@@ -2,13 +2,23 @@ import { api } from "@/lib/api"
 
 export type BancoTipo = "ingreso" | "egreso"
 
-export const BANCO_DESTINOS = ["ec_construction", "multiprestamos_atlas"] as const
+export const BANCO_INGRESO_TIPOS = ["recibido_por_edgar", "otro"] as const
 
-export type BancoDestino = (typeof BANCO_DESTINOS)[number]
+export type BancoIngresoTipo = (typeof BANCO_INGRESO_TIPOS)[number]
 
-export const BANCO_DESTINO_LABELS: Record<BancoDestino, string> = {
-  ec_construction: "EC Construction",
-  multiprestamos_atlas: "Multipréstamos Atlas",
+export const BANCO_INGRESO_TIPO_LABELS: Record<BancoIngresoTipo, string> = {
+  recibido_por_edgar: "Recibido por Edgar",
+  otro: "Otro",
+}
+
+export const BANCO_EGRESO_DESTINOS = ["ec_programming", "atlas", "construccion"] as const
+
+export type BancoEgresoDestino = (typeof BANCO_EGRESO_DESTINOS)[number]
+
+export const BANCO_EGRESO_DESTINO_LABELS: Record<BancoEgresoDestino, string> = {
+  ec_programming: "EC Programming",
+  atlas: "Atlas",
+  construccion: "Construccion",
 }
 
 export type BancoMovimiento = {
@@ -18,11 +28,16 @@ export type BancoMovimiento = {
   tipo: BancoTipo
   monto: number
   motivo: string
-  destino: BancoDestino | null
+  ingresoTipo: BancoIngresoTipo | null
+  ingresoTipoLabel: string | null
+  destino: BancoEgresoDestino | null
   destinoLabel: string | null
   fecha: string
   createdAt: string
 }
+
+export const bancoMovimientoClasificacionLabel = (movimiento: BancoMovimiento) =>
+  movimiento.tipo === "ingreso" ? movimiento.ingresoTipoLabel : movimiento.destinoLabel
 
 export type BancoResumen = {
   cajaChica: number
@@ -95,7 +110,12 @@ export const fetchBancoMovimientos = (tipo?: BancoTipo) => {
   return api<{ movimientos: BancoMovimiento[] }>(`/banco/movimientos${query}`)
 }
 
-export const createBancoIngreso = (body: { monto: number; motivo: string; fecha: string }) =>
+export const createBancoIngreso = (body: {
+  monto: number
+  motivo: string
+  ingresoTipo: BancoIngresoTipo
+  fecha: string
+}) =>
   api<{ movimiento: BancoMovimiento }>("/banco/ingresos", {
     method: "POST",
     body: JSON.stringify(body),
@@ -104,7 +124,7 @@ export const createBancoIngreso = (body: { monto: number; motivo: string; fecha:
 export const createBancoEgreso = (body: {
   monto: number
   motivo: string
-  destino: BancoDestino
+  destino: BancoEgresoDestino
   fecha: string
 }) =>
   api<{ movimiento: BancoMovimiento }>("/banco/egresos", {
@@ -114,7 +134,13 @@ export const createBancoEgreso = (body: {
 
 export const updateBancoMovimiento = (
   id: number,
-  body: { monto?: number; motivo?: string; destino?: BancoDestino; fecha?: string },
+  body: {
+    monto?: number
+    motivo?: string
+    ingresoTipo?: BancoIngresoTipo
+    destino?: BancoEgresoDestino
+    fecha?: string
+  },
 ) =>
   api<{ movimiento: BancoMovimiento | null }>(`/banco/movimientos/${id}`, {
     method: "PATCH",

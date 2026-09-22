@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarClock,
   CircleDollarSign,
+  Tag,
   Loader2,
   Minus,
   Plus,
@@ -31,10 +32,19 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import type { BancoDestino, BancoMovimiento, BancoResumen, BancoTipo } from "@/lib/banco"
+import type {
+  BancoEgresoDestino,
+  BancoIngresoTipo,
+  BancoMovimiento,
+  BancoResumen,
+  BancoTipo,
+} from "@/lib/banco"
 import {
-  BANCO_DESTINOS,
-  BANCO_DESTINO_LABELS,
+  BANCO_EGRESO_DESTINOS,
+  BANCO_EGRESO_DESTINO_LABELS,
+  BANCO_INGRESO_TIPOS,
+  BANCO_INGRESO_TIPO_LABELS,
+  bancoMovimientoClasificacionLabel,
   createBancoEgreso,
   createBancoIngreso,
   deleteBancoMovimiento,
@@ -60,9 +70,13 @@ const FILTERS = [
 const emptyForm = () => ({
   monto: "",
   motivo: "",
-  destino: "" as BancoDestino | "",
+  ingresoTipo: "" as BancoIngresoTipo | "",
+  destino: "" as BancoEgresoDestino | "",
   fecha: defaultBancoDatetimeLocalValue(),
 })
+
+const isIngresoForm = (mode: FormMode, editing: BancoMovimiento | null) =>
+  mode === "ingreso" || editing?.tipo === "ingreso"
 
 const isEgresoForm = (mode: FormMode, editing: BancoMovimiento | null) =>
   mode === "egreso" || editing?.tipo === "egreso"
@@ -120,6 +134,7 @@ export const BancoPage = () => {
     setForm({
       monto: String(movimiento.monto),
       motivo: movimiento.motivo,
+      ingresoTipo: movimiento.ingresoTipo ?? "",
       destino: movimiento.destino ?? "",
       fecha: toBancoDatetimeLocalValue(movimiento.fecha),
     })
@@ -146,8 +161,13 @@ export const BancoPage = () => {
       setFormError("El motivo es obligatorio.")
       return
     }
-    const needsDestino = isEgresoForm(formMode, editing)
-    if (needsDestino && !form.destino) {
+    const ingreso = isIngresoForm(formMode, editing)
+    const egreso = isEgresoForm(formMode, editing)
+    if (ingreso && !form.ingresoTipo) {
+      setFormError("Selecciona el tipo de ingreso.")
+      return
+    }
+    if (egreso && !form.destino) {
       setFormError("Selecciona el destino del egreso.")
       return
     }
@@ -155,18 +175,27 @@ export const BancoPage = () => {
     setSaving(true)
     setFormError(null)
     try {
-      const body = {
+      const base = {
         monto,
         motivo: form.motivo.trim(),
         fecha: fromBancoDatetimeLocalValue(form.fecha),
-        ...(needsDestino ? { destino: form.destino as BancoDestino } : {}),
       }
       if (editing) {
-        await updateBancoMovimiento(editing.id, body)
+        await updateBancoMovimiento(editing.id, {
+          ...base,
+          ...(ingreso ? { ingresoTipo: form.ingresoTipo as BancoIngresoTipo } : {}),
+          ...(egreso ? { destino: form.destino as BancoEgresoDestino } : {}),
+        })
       } else if (formMode === "ingreso") {
-        await createBancoIngreso(body)
+        await createBancoIngreso({
+          ...base,
+          ingresoTipo: form.ingresoTipo as BancoIngresoTipo,
+        })
       } else if (formMode === "egreso") {
-        await createBancoEgreso(body as { monto: number; motivo: string; destino: BancoDestino; fecha: string })
+        await createBancoEgreso({
+          ...base,
+          destino: form.destino as BancoEgresoDestino,
+        })
       }
       closeForm()
       await reload()
@@ -310,7 +339,9 @@ export const BancoPage = () => {
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {formatBancoDate(movimiento.fecha)}
-                    {movimiento.destinoLabel ? ` · ${movimiento.destinoLabel}` : ""}
+                    {bancoMovimientoClasificacionLabel(movimiento)
+                      ? ` · ${bancoMovimientoClasificacionLabel(movimiento)}`
+                      : ""}
                     {movimiento.registradoPor ? ` · ${movimiento.registradoPor}` : ""}
                   </p>
                 </div>
@@ -377,6 +408,30 @@ export const BancoPage = () => {
                   onChange={(event) => setForm((prev) => ({ ...prev, fecha: event.target.value }))}
                 />
               </div>
+              {isIngresoForm(formMode, editing) ? (
+                <div className="grid gap-2">
+                  <FieldLabel htmlFor="banco-ingreso-tipo" icon={Tag}>
+                    Tipo
+                  </FieldLabel>
+                  <Select
+                    value={form.ingresoTipo || undefined}
+                    onValueChange={(value) =>
+                      setForm((prev) => ({ ...prev, ingresoTipo: value as BancoIngresoTipo }))
+                    }
+                  >
+                    <SelectTrigger id="banco-ingreso-tipo" className="h-11 w-full">
+                      <SelectValue placeholder="Selecciona tipo" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" className="z-[100]">
+                      {BANCO_INGRESO_TIPOS.map((tipo) => (
+                        <SelectItem key={tipo} value={tipo}>
+                          {BANCO_INGRESO_TIPO_LABELS[tipo]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
               {isEgresoForm(formMode, editing) ? (
                 <div className="grid gap-2">
                   <FieldLabel htmlFor="banco-destino" icon={Building2}>
@@ -385,16 +440,16 @@ export const BancoPage = () => {
                   <Select
                     value={form.destino || undefined}
                     onValueChange={(value) =>
-                      setForm((prev) => ({ ...prev, destino: value as BancoDestino }))
+                      setForm((prev) => ({ ...prev, destino: value as BancoEgresoDestino }))
                     }
                   >
                     <SelectTrigger id="banco-destino" className="h-11 w-full">
                       <SelectValue placeholder="Selecciona destino" />
                     </SelectTrigger>
                     <SelectContent position="popper" className="z-[100]">
-                      {BANCO_DESTINOS.map((destino) => (
+                      {BANCO_EGRESO_DESTINOS.map((destino) => (
                         <SelectItem key={destino} value={destino}>
-                          {BANCO_DESTINO_LABELS[destino]}
+                          {BANCO_EGRESO_DESTINO_LABELS[destino]}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -63,7 +63,15 @@ const enrichBancoResult = (
     contenido: listResource
       ? {
           tipo: "movimientos",
-          campos: ["monto", "motivo", "fecha", "tipo", "registradoPor", "destinoLabel"],
+          campos: [
+            "monto",
+            "motivo",
+            "fecha",
+            "tipo",
+            "registradoPor",
+            "ingresoTipoLabel",
+            "destinoLabel",
+          ],
         }
       : {
           tipo: "resumen",
@@ -90,6 +98,8 @@ const slimBancoMovimiento = (item: unknown): Record<string, unknown> | unknown =
       typeof source.motivo === "string" && source.motivo.trim()
         ? source.motivo.trim()
         : source.motivo ?? null,
+    ingresoTipo: source.ingresoTipo ?? null,
+    ingresoTipoLabel: source.ingresoTipoLabel ?? null,
     destino: source.destino ?? null,
     destinoLabel: source.destinoLabel ?? null,
     fecha: source.fecha,
@@ -163,6 +173,7 @@ type CreateBancoMovimientoArgs = {
   tipo?: unknown
   monto?: unknown
   motivo?: unknown
+  ingresoTipo?: unknown
   destino?: unknown
   fecha?: unknown
 }
@@ -195,11 +206,18 @@ export const runCreateBancoMovimiento = async (
     if (!fecha || typeof fecha !== "string") {
       return finishTool(channel, callId, { ok: false, message: "Fecha inválida" })
     }
+    const ingresoTipo = typeof parsed.ingresoTipo === "string" ? parsed.ingresoTipo.trim() : ""
     const destino = typeof parsed.destino === "string" ? parsed.destino.trim() : ""
+    if (tipo === "ingreso" && !ingresoTipo) {
+      return finishTool(channel, callId, {
+        ok: false,
+        message: "Tipo obligatorio para ingreso: recibido_por_edgar u otro",
+      })
+    }
     if (tipo === "egreso" && !destino) {
       return finishTool(channel, callId, {
         ok: false,
-        message: "Destino obligatorio para egreso: ec_construction o multiprestamos_atlas",
+        message: "Destino obligatorio para egreso: ec_programming, atlas o construccion",
       })
     }
 
@@ -210,6 +228,7 @@ export const runCreateBancoMovimiento = async (
         monto,
         motivo,
         fecha,
+        ...(tipo === "ingreso" ? { ingresoTipo } : {}),
         ...(tipo === "egreso" ? { destino } : {}),
       }),
     })

@@ -374,18 +374,28 @@ export const BANCO_TIPOS = ["ingreso", "egreso"] as const
 
 export type BancoTipo = (typeof BANCO_TIPOS)[number]
 
-export const BANCO_DESTINOS = ["ec_construction", "multiprestamos_atlas"] as const
+export const BANCO_INGRESO_TIPOS = ["recibido_por_edgar", "otro"] as const
 
-export type BancoDestino = (typeof BANCO_DESTINOS)[number]
+export type BancoIngresoTipo = (typeof BANCO_INGRESO_TIPOS)[number]
 
-export const BANCO_DESTINO_LABELS: Record<BancoDestino, string> = {
-  ec_construction: "EC Construction",
-  multiprestamos_atlas: "Multipréstamos Atlas",
+export const BANCO_INGRESO_TIPO_LABELS: Record<BancoIngresoTipo, string> = {
+  recibido_por_edgar: "Recibido por Edgar",
+  otro: "Otro",
+}
+
+export const BANCO_EGRESO_DESTINOS = ["ec_programming", "atlas", "construccion"] as const
+
+export type BancoEgresoDestino = (typeof BANCO_EGRESO_DESTINOS)[number]
+
+export const BANCO_EGRESO_DESTINO_LABELS: Record<BancoEgresoDestino, string> = {
+  ec_programming: "EC Programming",
+  atlas: "Atlas",
+  construccion: "Construccion",
 }
 
 /** Future cross-app ingreso target (prestamo-nuevo); not wired yet. */
-export const BANCO_DESTINO_INTEGRATION: Partial<Record<BancoDestino, string>> = {
-  multiprestamos_atlas: "prestamo-nuevo",
+export const BANCO_EGRESO_DESTINO_INTEGRATION: Partial<Record<BancoEgresoDestino, string>> = {
+  atlas: "prestamo-nuevo",
 }
 
 export type BancoMovimientoRow = RowDataPacket & {
@@ -394,7 +404,7 @@ export type BancoMovimientoRow = RowDataPacket & {
   tipo: BancoTipo
   monto: string
   motivo: string
-  destino: BancoDestino | null
+  destino: string | null
   fecha: string
   created_at: Date
 }
@@ -406,7 +416,9 @@ export type PublicBancoMovimiento = {
   tipo: BancoTipo
   monto: number
   motivo: string
-  destino: BancoDestino | null
+  ingresoTipo: BancoIngresoTipo | null
+  ingresoTipoLabel: string | null
+  destino: BancoEgresoDestino | null
   destinoLabel: string | null
   fecha: string
   createdAt: string
@@ -428,32 +440,59 @@ export const parseBancoMonto = (value: unknown): number | null => {
   return Math.round(amount * 100) / 100
 }
 
-const DESTINO_ALIASES: Record<string, BancoDestino> = {
-  ec_construction: "ec_construction",
-  ecconstruction: "ec_construction",
-  construction: "ec_construction",
-  "ec construction": "ec_construction",
-  multiprestamos_atlas: "multiprestamos_atlas",
-  multiprestamos: "multiprestamos_atlas",
-  atlas: "multiprestamos_atlas",
-  "multiprestamos atlas": "multiprestamos_atlas",
-  "multipréstamos atlas": "multiprestamos_atlas",
-  prestamo_nuevo: "multiprestamos_atlas",
-  "prestamo-nuevo": "multiprestamos_atlas",
-}
-
-export const parseBancoDestino = (value: unknown): BancoDestino | null => {
-  if (typeof value !== "string") {
-    return null
-  }
-  const normalized = value
+const normalizeBancoToken = (value: string) =>
+  value
     .trim()
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .replace(/[\s_-]+/g, "_")
-  return DESTINO_ALIASES[normalized] ?? DESTINO_ALIASES[value.trim().toLowerCase()] ?? null
+
+const INGRESO_TIPO_ALIASES: Record<string, BancoIngresoTipo> = {
+  recibido_por_edgar: "recibido_por_edgar",
+  edgar: "recibido_por_edgar",
+  "recibido por edgar": "recibido_por_edgar",
+  otro: "otro",
+  otros: "otro",
 }
+
+const EGRESO_DESTINO_ALIASES: Record<string, BancoEgresoDestino> = {
+  ec_programming: "ec_programming",
+  ecprogramming: "ec_programming",
+  "ec programming": "ec_programming",
+  programming: "ec_programming",
+  atlas: "atlas",
+  multiprestamos_atlas: "atlas",
+  multiprestamos: "atlas",
+  "multiprestamos atlas": "atlas",
+  "multipréstamos atlas": "atlas",
+  prestamo_nuevo: "atlas",
+  "prestamo-nuevo": "atlas",
+  construccion: "construccion",
+  construction: "construccion",
+  ec_construction: "construccion",
+  ecconstruction: "construccion",
+  "ec construction": "construccion",
+}
+
+export const parseBancoIngresoTipo = (value: unknown): BancoIngresoTipo | null => {
+  if (typeof value !== "string") {
+    return null
+  }
+  const normalized = normalizeBancoToken(value)
+  return INGRESO_TIPO_ALIASES[normalized] ?? INGRESO_TIPO_ALIASES[value.trim().toLowerCase()] ?? null
+}
+
+export const parseBancoEgresoDestino = (value: unknown): BancoEgresoDestino | null => {
+  if (typeof value !== "string") {
+    return null
+  }
+  const normalized = normalizeBancoToken(value)
+  return EGRESO_DESTINO_ALIASES[normalized] ?? EGRESO_DESTINO_ALIASES[value.trim().toLowerCase()] ?? null
+}
+
+/** @deprecated Use parseBancoEgresoDestino */
+export const parseBancoDestino = parseBancoEgresoDestino
 
 export const parseBancoFecha = (value: unknown): string | null => {
   if (typeof value !== "string") {
@@ -474,7 +513,9 @@ const formatBancoFecha = (value: string | Date): string => {
 export const toPublicBancoMovimiento = (
   row: BancoMovimientoRow & { user_name?: string | null },
 ): PublicBancoMovimiento => {
-  const destino = row.destino ? parseBancoDestino(row.destino) : null
+  const stored = row.destino?.trim() || null
+  const ingresoTipo = row.tipo === "ingreso" && stored ? parseBancoIngresoTipo(stored) : null
+  const destino = row.tipo === "egreso" && stored ? parseBancoEgresoDestino(stored) : null
   return {
     id: row.id,
     userId: row.user_id,
@@ -482,8 +523,10 @@ export const toPublicBancoMovimiento = (
     tipo: row.tipo,
     monto: Number(row.monto),
     motivo: row.motivo,
+    ingresoTipo,
+    ingresoTipoLabel: ingresoTipo ? BANCO_INGRESO_TIPO_LABELS[ingresoTipo] : null,
     destino,
-    destinoLabel: destino ? BANCO_DESTINO_LABELS[destino] : null,
+    destinoLabel: destino ? BANCO_EGRESO_DESTINO_LABELS[destino] : null,
     fecha: formatBancoFecha(row.fecha as string | Date),
     createdAt: row.created_at.toISOString(),
   }
@@ -514,7 +557,7 @@ export const ensureBancoTables = async () => {
   if (destinoCols.length === 0) {
     await pool.query(`
       ALTER TABLE banco_movimientos
-      ADD COLUMN destino VARCHAR(32) NULL COMMENT 'egreso: ec_construction | multiprestamos_atlas'
+      ADD COLUMN destino VARCHAR(32) NULL COMMENT 'ingreso tipo o egreso destino slug'
       AFTER motivo
     `)
   }
