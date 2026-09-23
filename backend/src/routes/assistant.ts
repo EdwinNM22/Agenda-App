@@ -1,5 +1,7 @@
 import type { FastifyInstance } from "fastify"
 import { pool, type UserRow } from "../db.js"
+import type { ChatSuggestionTurn } from "../assistant/prompts/chat-suggestions.js"
+import { generateChatSuggestions } from "../chatSuggestions.js"
 import { generateConversationTitle } from "../conversationTitle.js"
 import { getHomeGreeting } from "../homeGreeting.js"
 
@@ -20,6 +22,36 @@ export const registerAssistantRoutes = async (app: FastifyInstance) => {
       } catch (error) {
         request.log.warn({ err: error }, "No se pudo generar saludo de Home")
         return reply.code(502).send({ message: "No se pudo generar el saludo" })
+      }
+    },
+  )
+
+  app.post(
+    "/assistant/chat-suggestions",
+    { onRequest: [app.authenticate] },
+    async (request, reply) => {
+      const body = request.body as { messages?: Array<{ role?: string; text?: string }> }
+      const raw = Array.isArray(body.messages) ? body.messages : []
+      const messages: ChatSuggestionTurn[] = []
+      for (const item of raw) {
+        const text = item.text?.trim() ?? ""
+        if (!text) {
+          continue
+        }
+        if (item.role === "user" || item.role === "assistant") {
+          messages.push({ role: item.role, text })
+        }
+      }
+      if (messages.length === 0) {
+        return { suggestions: [] as Array<{ label: string; message: string }> }
+      }
+      try {
+        const suggestions = await generateChatSuggestions(messages)
+        void reply.header("Cache-Control", "private, no-store")
+        return { suggestions }
+      } catch (error) {
+        request.log.warn({ err: error }, "No se pudieron generar sugerencias de chat")
+        return { suggestions: [] as Array<{ label: string; message: string }> }
       }
     },
   )

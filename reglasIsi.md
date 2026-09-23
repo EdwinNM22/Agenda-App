@@ -208,9 +208,12 @@ Palabras y temas que disparan `query_prestamo`:
 | `caja-chica-detalle` | Desglose por categoría (mismo servicio que el admin) |
 | `ingresos` | Movimientos de ingreso de **caja** (motivo/tipo; **sin** cliente de crédito) |
 | `egresos` | Egresos del período (+ desembolsos embebidos en listado) |
-| `resumen` | KPIs de cartera |
 
-**Caja en Atlas:** solo `caja-chica` (saldo inicial, cuánto hay, ingresos/egresos del período; desembolsos en egresos). Isi **no** usa el término liquidez ni el recurso `liquidez`.
+**No existe** `resumen` ni `liquidez` en Isi: el hub `/resumen` y `/liquidez` de PrestamoApp devuelven KPIs globales; Isi usa `caja-chica` y recursos por período (por defecto **hoy**).
+
+**Caja en Atlas:** solo `caja-chica` (saldo inicial, cuánto hay, ingresos/egresos del período; desembolsos en egresos). Prohibido **liquidación**, **liquidez** y cartera global salvo petición explícita del usuario.
+
+**Resúmenes vagos** («qué hay en Atlas/Banco», «qué tengo hoy»): día actual; no totales acumulados ni históricos salvo que lo pidan.
 
 ### 3.4 Parámetros de período
 
@@ -247,8 +250,8 @@ Acepta variantes como «los de este mes» o «the last week» (normaliza la fras
 - Responder solo con datos de esa consulta; no acumular cifras de turnos anteriores.
 - Cambio de período → nueva llamada con el período nuevo.
 - Comparar dos períodos → dos llamadas separadas; no mezclar filas ni sumar entre períodos.
-- Sin período explícito en ingresos, egresos, desembolsos o pagos → `periodo=hoy`.
-- Histórico completo solo si lo piden explícitamente (todo el tiempo, desde el inicio, total acumulado).
+- Sin período explícito en caja-chica, ingresos, egresos, desembolsos, pagos, cuotas o créditos → `periodo=hoy`.
+- Histórico o totales globales solo si lo piden explícitamente (todo el tiempo, desde el inicio, total acumulado, toda la cartera).
 
 Tras cada consulta, la tool añade al JSON:
 

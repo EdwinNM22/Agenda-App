@@ -456,6 +456,21 @@ html.wallpaper .assistant-mic-btn--ai .mix-blend-screen {
   justify-content: center;
 }
 
+.chat-suggestion-cloud {
+  align-self: flex-start;
+  width: 100%;
+  max-height: 4.35rem;
+  padding-inline: 0;
+}
+
+.chat-suggestion-cloud .composer-tag-chip {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  justify-content: center;
+}
+
 .assistant-reply-bubble--loading {
   min-height: 5.5rem;
   transition:

@@ -35,7 +35,7 @@ export const AGENDA_TOOLS: RealtimeTool[] = [
     type: "function",
     name: "list_tasks",
     description:
-      "Consulta la agenda personal del usuario. Devuelve id, título, descripción, dueAt, notifyAt, status, statusLabel y group (overdue|today|tomorrow|upcoming|none). date es filtro opcional por día; sin date lista todas. No sirve para Atlas.",
+      "Consulta la agenda personal del usuario. Devuelve id, título, descripción, dueAt, notifyAt, status, statusLabel y group (overdue|today|tomorrow|upcoming|none). «Qué tengo hoy» o preguntas del día → date=hoy/today. Sin date solo si piden toda la agenda o histórico explícito. No sirve para Atlas.",
     parameters: {
       type: "object",
       properties: {

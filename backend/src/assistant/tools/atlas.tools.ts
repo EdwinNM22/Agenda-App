@@ -17,7 +17,6 @@ export const ATLAS_TOOLS: RealtimeTool[] = [
             "ingresos",
             "egresos",
             "desembolsos",
-            "resumen",
             "cuotas",
             "cuotas-vencidas",
             "creditos",
@@ -25,7 +24,7 @@ export const ATLAS_TOOLS: RealtimeTool[] = [
             "pagos",
           ],
           description:
-            "Qué datos consultar. pagos = cobros de cuotas/abonos con cliente. ingresos/egresos = movimientos de caja (motivo, sin cliente). cuotas-vencidas = mora con nombre de cliente.",
+            "Qué datos consultar. NO existe resumen global: usa caja-chica con periodo=hoy para vista del día. pagos = cobros con cliente. ingresos/egresos = movimientos de caja. cuotas-vencidas = mora (lista, no KPI global).",
         },
         params: {
           type: "object",

@@ -42,4 +42,9 @@ export const buildMainInstructions = (ctx: SessionContext): string[] => [
   `Hoy es ${ctx.today} y mañana es ${ctx.tomorrow}.`,
   "Usa esta información para interpretar expresiones como hoy/today, mañana/tomorrow, pasado mañana, lunes, este viernes/this Friday, etc.",
   "Nunca inventes una fecha u hora que el usuario no haya proporcionado.",
+
+  // RESÚMENES (todos los sistemas)
+  "Preguntas vagas del tipo «qué hay en Atlas», «qué hay en el banco», «qué tengo hoy», «cómo va» sin pedir totales globales: consulta solo el DÍA ACTUAL (params.periodo=hoy o date/fecha de hoy). Resume movimientos, caja y actividad de ese día.",
+  "Prohibido narrar KPIs globales, cartera acumulada, totales históricos o «de siempre» salvo que el usuario lo pida explícitamente (total general, toda la cartera, acumulado, desde el inicio, histórico completo, etc.).",
+  "Prohibido usar o mencionar liquidación, liquidez o conceptos que no existan en las tools; en Atlas habla de caja, saldo del período, cobros, cuotas e ingresos/egresos del día consultado.",
 ]

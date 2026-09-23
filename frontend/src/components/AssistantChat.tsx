@@ -28,6 +28,8 @@ import { AssistantReplyShimmer } from "@/components/AssistantReplyShimmer"
 import { TaskPdfViewer, type PdfViewerFile } from "@/components/TaskPdfViewer"
 import { Button } from "@/components/ui/button"
 import type { AssistantMessage, AssistantPdfAttachment } from "@/lib/assistantChatEvents"
+import { ChatSuggestionChips } from "@/components/ChatSuggestionChips"
+import { useChatSuggestions } from "@/hooks/useChatSuggestions"
 import { useVoiceAssistant } from "@/lib/voice-assistant"
 import { cn } from "@/lib/utils"
 
@@ -259,7 +261,7 @@ const AssistantChatThread = ({
 }
 
 export const AssistantChat = ({ className }: { className?: string }) => {
-  const { messages, live, busy, activity, status, textStatus, error } = useVoiceAssistant()
+  const { messages, live, busy, activity, status, textStatus, error, sendText } = useVoiceAssistant()
   const endRef = useRef<HTMLDivElement>(null)
   const [pdfFile, setPdfFile] = useState<PdfViewerFile | null>(null)
   const streaming = useMemo(() => messages.some((message) => message.streaming), [messages])
@@ -283,6 +285,15 @@ export const AssistantChat = ({ className }: { className?: string }) => {
     return false
   }, [activity, busy, live, messages, streaming, textStatus])
   const chatEmpty = messages.length === 0
+  const suggestionsReady = !chatEmpty && !streaming && !waitingForReply && !activity
+  const { suggestions, clearSuggestions } = useChatSuggestions(messages, {
+    enabled: suggestionsReady,
+  })
+
+  const pickSuggestion = (text: string) => {
+    clearSuggestions()
+    void sendText(text)
+  }
 
   const emptyHint = useMemo(() => {
     if (error) {
@@ -309,7 +320,7 @@ export const AssistantChat = ({ className }: { className?: string }) => {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [messages, waitingForReply, activity, emptyHint])
+  }, [messages, waitingForReply, activity, emptyHint, suggestions.length])
 
   return (
     <section className={cn("flex min-h-0 flex-1 flex-col px-5 pt-1", className)}>
@@ -343,6 +354,15 @@ export const AssistantChat = ({ className }: { className?: string }) => {
             {activityLabel(activity) ?? "Preparando respuesta"}
             <BusyDots />
           </StatusBubble>
+        ) : null}
+
+        {!chatEmpty && suggestions.length > 0 ? (
+          <ChatSuggestionChips
+            suggestions={suggestions}
+            onPick={pickSuggestion}
+            disabled={streaming || waitingForReply || Boolean(activity)}
+            className="mt-1"
+          />
         ) : null}
 
         <div ref={endRef} className="h-4 shrink-0" aria-hidden />

@@ -1,5 +1,5 @@
 import { api } from "@/lib/api"
-import { normalizePrestamoParams } from "@/assistant/shared/period"
+import { applyAtlasDefaultPeriod, sanitizePrestamoPayload } from "@/assistant/shared/prestamo-query"
 import { finishTool } from "../runtime"
 import type { ToolRunResult } from "../types"
 
@@ -14,7 +14,6 @@ const PRESTAMO_RESOURCE_SLUGS: Record<string, string> = {
   ingresos: "ingresos",
   egresos: "egresos",
   desembolsos: "desembolsos",
-  resumen: "resumen",
   "cuotas-vencidas": "cuotas-vencidas",
   cuotas: "cuotas",
   creditos: "creditos",
@@ -76,7 +75,7 @@ const enrichPrestamoResult = (
     resource,
     periodoConsultado,
     instruccion:
-      "Answer using only this response and periodoConsultado. Do not mix prior queries. Speak in the user's language (same as their last message).",
+      "Answer using only this response and periodoConsultado (day-scoped unless user asked for global/historical totals). Do not mention liquidación, liquidez or global portfolio KPIs unless present and explicitly requested. Do not mix prior queries. Speak in the user's language.",
   }
 }
 
@@ -200,17 +199,22 @@ export const runQueryPrestamo = async (
       })
     }
 
-    const params = normalizePrestamoParams(parsed.params)
+    const params = applyAtlasDefaultPeriod(resource, parsed.params)
 
     const result = await queryPrestamoApi(slug, params)
-    if (result.ok && result.data !== undefined) {
+    const data =
+      result.ok && result.data !== undefined
+        ? sanitizePrestamoPayload(trimPrestamoData(resource, result.data))
+        : result.data
+
+    if (result.ok && data !== undefined) {
       return finishTool(
         channel,
         callId,
         enrichPrestamoResult(
           {
             ...result,
-            data: trimPrestamoData(resource, result.data),
+            data,
           },
           resource,
           params,

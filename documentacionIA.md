@@ -268,7 +268,7 @@ El único texto generado fuera de las tools es el **saludo inicial** al conectar
 | `egresos` | Egresos de caja del periodo **incluyendo desembolsos de crédito** (`totalEgresos`, `egresos[]` con `motivo`, `desembolsos[]`) |
 | `desembolsos` | Lista de créditos desembolsados con datos del crédito |
 | `creditos` | Búsqueda/consulta de créditos; con `id` incluye cuotas |
-| `resumen` | KPIs de cartera, liquidación hoy, invertido |
+| _(no expuesto a Isi)_ | Hub `/resumen` y `/liquidez` en PrestamoApp = KPIs globales; Isi usa `caja-chica` + período (default hoy) |
 | `cuotas-vencidas` | Cuotas en mora **con nombre de cliente** (`usuario` / `clienteNombre`) |
 | `clientes` | Búsqueda por nombre, DUI, teléfono |
 | `pagos` | Cuotas pagadas y abonos del periodo **con cliente** (desglose de cobros) |

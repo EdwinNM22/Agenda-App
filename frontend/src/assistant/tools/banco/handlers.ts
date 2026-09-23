@@ -1,4 +1,5 @@
 import { api } from "@/lib/api"
+import { applyBancoDefaultPeriod } from "@/assistant/shared/prestamo-query"
 import { normalizePrestamoParams } from "@/assistant/shared/period"
 import { finishTool } from "../runtime"
 import type { ToolRunResult } from "../types"
@@ -23,7 +24,7 @@ const toQueryString = (params: Record<string, string>): string => {
 }
 
 const toBancoQueryParams = (params: Record<string, unknown> | undefined): Record<string, string> => {
-  const normalized = normalizePrestamoParams(params) ?? {}
+  const normalized = applyBancoDefaultPeriod(params) ?? normalizePrestamoParams(params) ?? {}
 
   const query: Record<string, string> = {}
   if (typeof normalized.fecha === "string" && normalized.fecha) {

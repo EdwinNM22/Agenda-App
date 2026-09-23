@@ -109,11 +109,7 @@ const PRESTAMO_LIST_RESOURCES: Record<string, { title: string; keys: string[] }>
 }
 
 /** Resúmenes / KPIs: no pintar Markdown; que Isi narre y salga en el chat. */
-const PRESTAMO_SUMMARY_RESOURCES = new Set([
-  "caja-chica",
-  "caja-chica-detalle",
-  "resumen",
-])
+const PRESTAMO_SUMMARY_RESOURCES = new Set(["caja-chica", "caja-chica-detalle"])
 
 const PRESTAMO_COLUMNS: Array<{ key: string; label: string }> = [
   { key: "clienteNombre", label: "Cliente" },
