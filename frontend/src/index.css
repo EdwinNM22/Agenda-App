@@ -154,10 +154,12 @@ html.dark:not(.wallpaper) .k-app {
   --k-safe-area-right: env(safe-area-inset-right, 0px);
   --k-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --k-safe-area-left: env(safe-area-inset-left, 0px);
-  /* Espacio bajo la pill (no todo el safe-area: queda pegada al borde sin tapar el home). */
+  /* Igual que Mensajería (--wa-dock-bottom-padding): pill cerca del borde físico. */
   --agenda-tabbar-bottom-padding: max(0.375rem, calc(var(--k-safe-area-bottom) * 0.28));
-  /* Tab bar (h-16) + padding inferior + margen sobre el contenido */
-  --agenda-tabbar-offset: calc(var(--agenda-tabbar-bottom-padding) + 5.5rem);
+  --agenda-tabbar-height: 4rem;
+  --agenda-tabbar-offset: calc(
+    var(--agenda-tabbar-bottom-padding) + var(--agenda-tabbar-height) + 0.75rem + 0.35rem
+  );
   --keyboard-inset: 0px;
   /* Altura útil de Home: viewport completo menos tab bar (sin restar safe-top otra vez) */
   --agenda-home-height: calc(var(--app-height) - var(--agenda-tabbar-offset) - var(--keyboard-inset));
@@ -254,7 +256,7 @@ html.assistant-chat-open body {
   overflow: hidden;
 }
 
-html.assistant-chat-open .agenda-tabbar-wrap {
+html.assistant-chat-open .agenda-tabbar-dock {
   translate: 0 110%;
   pointer-events: none;
 }
@@ -274,7 +276,7 @@ a,
   touch-action: manipulation;
 }
 
-html.keyboard-open .agenda-tabbar-wrap {
+html.keyboard-open .agenda-tabbar-dock {
   translate: 0 110%;
   pointer-events: none;
 }
@@ -569,8 +571,22 @@ html.wallpaper .agenda-tabbar .liquid-glass canvas {
   display: none !important;
 }
 
-.agenda-tabbar-wrap {
-  padding-bottom: var(--agenda-tabbar-bottom-padding);
+/* Mismo anclaje que .wa-bottom-nav-dock en Mensajería (portal en body, fixed bottom). */
+.agenda-tabbar-dock {
+  position: fixed;
+  z-index: 50;
+  inset-inline: 0;
+  bottom: 0;
+  pointer-events: none;
+  padding-inline: max(0.85rem, var(--k-safe-area-left)) max(0.85rem, var(--k-safe-area-right));
+  padding-bottom: calc(var(--agenda-tabbar-bottom-padding) + 0.35rem);
+}
+
+.agenda-tabbar-dock .agenda-tabbar,
+.agenda-tabbar-dock .k-tabbar {
+  pointer-events: auto;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 .agenda-tabbar > .pointer-events-none {

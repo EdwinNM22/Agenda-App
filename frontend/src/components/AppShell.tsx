@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { CalendarDays, Home, Settings2, Wallet } from "lucide-react"
 import { App, Icon, Tabbar, TabbarLink, ToolbarPane } from "konsta/react"
 import { LiquidGlass } from "liquid-glass-backdrop-react"
@@ -78,6 +79,61 @@ const ShellChrome = () => {
   const { open: assistantSheetOpen } = useAssistantSheet()
   const hidden = useHideOnScroll(pathname) || assistantSheetOpen
 
+  const tabBarDock = (
+    <motion.div
+      className="agenda-tabbar-dock"
+      animate={{ y: hidden ? "110%" : 0 }}
+      transition={{ type: "spring", stiffness: 320, damping: 34 }}
+    >
+      <Tabbar labels icons innerClassName="!h-16" className="agenda-tabbar relative !px-4">
+        <LiquidGlass
+          variant="surface"
+          surface="convex_squircle"
+          glassThickness={160}
+          refractiveIndex={1.48}
+          refractionScale={0.72}
+          bezelRatio={0.3}
+          bezelMinPx={8}
+          bezelMaxPx={14}
+          blurStdDev={0.4}
+          colorSaturate={1.28}
+          specularOpacity={0.42}
+          specularRimBlur={0.6}
+          className="h-full w-full shadow-ios-light-glass dark:shadow-ios-dark-glass"
+        >
+          <ToolbarPane className="!bg-transparent !shadow-none !backdrop-blur-none">
+            {tabs.map((tab) => {
+              const active = tab.match(pathname)
+              const TabIcon = tab.Icon
+              return (
+                <TabbarLink
+                  key={tab.to}
+                  component="button"
+                  className="appearance-none"
+                  active={active}
+                  colors={{
+                    textActiveIos: "text-ios-primary",
+                    textIos: "text-black/45 dark:text-white/45",
+                  }}
+                  onClick={() => navigate(tab.to)}
+                  icon={
+                    <Icon
+                      ios={
+                        <TabIcon className="h-6 w-6 fill-none" strokeWidth={active ? 2.4 : 1.8} />
+                      }
+                    />
+                  }
+                  label={tab.label}
+                  linkProps={{ type: "button" }}
+                />
+              )
+            })}
+          </ToolbarPane>
+        </LiquidGlass>
+      </Tabbar>
+    </motion.div>
+  )
+
   return (
     <App
       theme="ios"
@@ -109,61 +165,7 @@ const ShellChrome = () => {
       <AssistantChatSheet />
       <FloatingAssistant />
 
-      <motion.div
-        className="agenda-tabbar-wrap fixed inset-x-0 bottom-0 z-50"
-        animate={{ y: hidden ? "110%" : 0 }}
-        transition={{ type: "spring", stiffness: 320, damping: 34 }}
-      >
-        <Tabbar labels icons innerClassName="!h-16" className="agenda-tabbar relative !px-4">
-          <LiquidGlass
-            variant="surface"
-            surface="convex_squircle"
-            glassThickness={160}
-            refractiveIndex={1.48}
-            refractionScale={0.72}
-            bezelRatio={0.3}
-            bezelMinPx={8}
-            bezelMaxPx={14}
-            blurStdDev={0.4}
-            colorSaturate={1.28}
-            specularOpacity={0.42}
-            specularRimBlur={0.6}
-            className="h-full w-full shadow-ios-light-glass dark:shadow-ios-dark-glass"
-          >
-            <ToolbarPane className="!bg-transparent !shadow-none !backdrop-blur-none">
-              {tabs.map((tab) => {
-                const active = tab.match(pathname)
-                const TabIcon = tab.Icon
-                return (
-                  <TabbarLink
-                    key={tab.to}
-                    component="button"
-                    className="appearance-none"
-                    active={active}
-                    colors={{
-                      textActiveIos: "text-ios-primary",
-                      textIos: "text-black/45 dark:text-white/45",
-                    }}
-                    onClick={() => navigate(tab.to)}
-                    icon={
-                      <Icon
-                        ios={
-                          <TabIcon
-                            className="h-6 w-6 fill-none"
-                            strokeWidth={active ? 2.4 : 1.8}
-                          />
-                        }
-                      />
-                    }
-                    label={tab.label}
-                    linkProps={{ type: "button" }}
-                  />
-                )
-              })}
-            </ToolbarPane>
-          </LiquidGlass>
-        </Tabbar>
-      </motion.div>
+      {typeof document !== "undefined" ? createPortal(tabBarDock, document.body) : tabBarDock}
     </App>
   )
 }
