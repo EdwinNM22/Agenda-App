@@ -60,7 +60,7 @@ export const AssistantChatSheet = () => {
       <SheetContent
         side="bottom"
         showCloseButton
-        className="assistant-chat-sheet z-[70] mx-auto flex w-full max-w-lg flex-col gap-0 overflow-hidden rounded-t-[1.75rem] border-t p-0 pb-[max(var(--k-safe-area-bottom),0.75rem)]"
+        className="assistant-chat-sheet z-[70] flex w-full flex-col gap-0 overflow-hidden rounded-t-[1.75rem] border-t p-0 pb-[max(var(--k-safe-area-bottom),0.75rem)] sm:mx-auto sm:max-w-lg"
       >
         <div className="flex shrink-0 flex-col items-center pt-2 pb-1">
           <span className="h-1 w-10 rounded-full bg-muted-foreground/25" aria-hidden />

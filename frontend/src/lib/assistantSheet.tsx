@@ -19,7 +19,14 @@ export const AssistantSheetProvider = ({ children }: { children: ReactNode }) =>
   const [open, setOpen] = useState(false)
 
   const openSheet = useCallback(() => {
-    setOpen(true)
+    const active = document.activeElement
+    if (active instanceof HTMLElement) {
+      active.blur()
+    }
+    // Un frame sin teclado: evita en iOS el “zoom” al abrir el sheet encima del input.
+    requestAnimationFrame(() => {
+      setOpen(true)
+    })
   }, [])
 
   const closeSheet = useCallback(() => {

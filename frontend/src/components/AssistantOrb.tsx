@@ -3,10 +3,9 @@ import { ParticlesOrb } from "@/components/orb/ParticlesOrb"
 import { useOrbAssistantState } from "@/hooks/useOrbAssistantState"
 import { OrbStatus } from "@/lib/orb/orb-status"
 import { useVoiceAssistant } from "@/lib/voice-assistant"
+import { ORB_COLOR_FROM, ORB_COLOR_TO } from "@/lib/orb/orb-state"
 import { cn } from "@/lib/utils"
 
-const ORB_COLOR_FROM = "#818cf8"
-const ORB_COLOR_TO = "#22d3ee"
 const ORB_SPEED = 0.5
 const ORB_SIZE = 168
 

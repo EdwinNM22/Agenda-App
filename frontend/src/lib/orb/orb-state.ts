@@ -32,6 +32,12 @@ export interface OrbProps {
 export const ERROR_COLOR_FROM = "#fb7185"
 export const ERROR_COLOR_TO = "#f43f5e"
 
+/** Paleta del orb de voz (Isi); reutilizada en UI de micrófono. */
+export const ORB_COLOR_FROM = "#818cf8"
+export const ORB_COLOR_TO = "#22d3ee"
+export const ORB_COLOR_ACCENT = "#c084fc"
+export const ORB_COLOR_SKY = "#38bdf8"
+
 export const hexToRgb = (hex: string): [number, number, number] => {
   const clean = hex.replace("#", "")
   const full =

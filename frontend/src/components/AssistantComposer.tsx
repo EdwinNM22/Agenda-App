@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent, type KeyboardEvent } from "react"
-import { ArrowUp, Mic, PhoneOff } from "lucide-react"
+import { ArrowUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { VoiceMicButton } from "@/components/VoiceMicButton"
 import { ComposerSuggestionChips } from "@/components/ComposerSuggestionChips"
 import { HomeConversationPreview } from "@/components/HomeConversationPreview"
 import { useAssistantSheet } from "@/lib/assistantSheet"
@@ -28,7 +29,7 @@ export const AssistantComposer = ({ variant, onEngage, className }: AssistantCom
   )
   const heroPlaceholder = hasConversation
     ? "Sigue la conversación con Isi…"
-    : "Escribe lo que buscas o haz una pregunta"
+    : "Escribe tu consulta o toca el micro para hablar"
 
   const submitText = () => {
     const text = value.trim()
@@ -114,35 +115,27 @@ export const AssistantComposer = ({ variant, onEngage, className }: AssistantCom
                 onKeyDown={handleKeyDown}
                 rows={1}
                 placeholder={heroPlaceholder}
-                className="min-h-9 max-h-20 flex-1 resize-none bg-transparent py-1 text-[15px] leading-snug text-foreground outline-none placeholder:text-muted-foreground field-sizing-content"
+                className="min-h-9 max-h-20 flex-1 resize-none bg-transparent py-1 text-base leading-snug text-foreground outline-none placeholder:text-muted-foreground field-sizing-content"
               />
-              <div className="flex shrink-0 items-center gap-1 pt-0.5">
-                <Button
-                  type="button"
-                  variant={voiceSession ? "destructive" : "ghost"}
-                  size="icon"
-                  className={cn(
-                    "size-9 rounded-full",
-                    voiceSession
-                      ? "glass-danger border shadow-sm"
-                      : "assistant-mic",
-                    !voiceSession && live && "bg-primary/10 text-primary",
-                    hearingUser && !voiceSession && "ring-2 ring-primary/40",
-                  )}
-                  onClick={handleMic}
-                  aria-label={voiceSession ? "Colgar" : "Hablar con Isi"}
-                >
-                  {voiceSession ? <PhoneOff className="size-4" /> : <Mic className="size-4" />}
-                </Button>
+              <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
                 <Button
                   type="submit"
+                  variant={canSend ? "default" : "ghost"}
                   size="icon"
                   disabled={!canSend}
-                  className="size-9 rounded-full"
+                  className="size-8 rounded-full opacity-90"
                   aria-label="Enviar"
                 >
                   <ArrowUp className="size-4" />
                 </Button>
+                <VoiceMicButton
+                  voiceSession={voiceSession}
+                  connecting={connecting}
+                  hearingUser={hearingUser}
+                  live={live}
+                  onClick={handleMic}
+                  size="md"
+                />
               </div>
             </div>
             <ComposerSuggestionChips onPick={pickSuggestion} />
@@ -154,73 +147,59 @@ export const AssistantComposer = ({ variant, onEngage, className }: AssistantCom
               onChange={(event) => setValue(event.target.value)}
               onKeyDown={handleKeyDown}
               rows={1}
-              placeholder={hero ? heroPlaceholder : "Escribe lo que buscas o haz una pregunta"}
+              placeholder={hero ? heroPlaceholder : "Escribe tu consulta o toca el micro para hablar"}
               className={cn(
                 "w-full resize-none bg-transparent text-foreground outline-none placeholder:text-muted-foreground",
                 hero
-                  ? "min-h-9 px-4 py-2.5 text-[15px] leading-snug"
+                  ? "min-h-9 px-4 py-2.5 text-base leading-snug"
                   : "field-sizing-content max-h-28 min-h-6 py-0.5 text-base leading-relaxed",
               )}
             />
             {hero ? (
-              <div className="absolute right-3 bottom-2 flex items-center gap-1.5">
-                <Button
-                  type="button"
-                  variant={voiceSession ? "destructive" : "ghost"}
-                  size="icon"
-                  className={cn(
-                    "size-10 rounded-full",
-                    voiceSession
-                      ? "glass-danger border shadow-sm"
-                      : "assistant-mic",
-                    !voiceSession && live && "bg-primary/10 text-primary",
-                    hearingUser && !voiceSession && "ring-2 ring-primary/40",
-                  )}
-                  onClick={handleMic}
-                  aria-label={voiceSession ? "Colgar" : "Hablar con Isi"}
-                >
-                  {voiceSession ? <PhoneOff className="size-5" /> : <Mic className="size-5" />}
-                </Button>
+              <div className="absolute right-3 bottom-2 flex items-center gap-2">
                 <Button
                   type="submit"
+                  variant={canSend ? "default" : "ghost"}
                   size="icon"
                   disabled={!canSend}
-                  className="size-10 rounded-full"
+                  className="size-9 rounded-full"
                   aria-label="Enviar"
                 >
                   <ArrowUp className="size-4" />
                 </Button>
+                <VoiceMicButton
+                  voiceSession={voiceSession}
+                  connecting={connecting}
+                  hearingUser={hearingUser}
+                  live={live}
+                  onClick={handleMic}
+                  size="lg"
+                />
               </div>
             ) : null}
           </>
         )}
       </div>
       {hero ? null : (
-        <div className="flex shrink-0 items-center gap-1.5 pb-0.5">
-          <Button
-            type="button"
-            variant={voiceSession ? "destructive" : "ghost"}
-            size="icon"
-            className={cn(
-              "size-11 rounded-full border shadow-sm",
-              voiceSession ? "glass-danger" : "assistant-mic bg-card",
-              !voiceSession && live && "bg-primary/10 text-primary",
-              hearingUser && !voiceSession && "ring-2 ring-primary/40",
-            )}
-            onClick={handleMic}
-            aria-label={voiceSession ? "Colgar" : "Hablar con Isi"}
-          >
-            {voiceSession ? <PhoneOff className="size-5" /> : <Mic className="size-5" />}
-          </Button>
+        <div className="flex shrink-0 items-center gap-2 pb-0.5">
           <Button
             type="submit"
+            variant={canSend ? "default" : "ghost"}
             size="icon"
             disabled={!canSend}
-            className="size-11 rounded-full shadow-sm"
+            className="size-10 rounded-full shadow-sm"
             aria-label="Enviar"
           >
             <ArrowUp className="size-4" />
           </Button>
+          <VoiceMicButton
+            voiceSession={voiceSession}
+            connecting={connecting}
+            hearingUser={hearingUser}
+            live={live}
+            onClick={handleMic}
+            size="lg"
+          />
         </div>
       )}
     </form>

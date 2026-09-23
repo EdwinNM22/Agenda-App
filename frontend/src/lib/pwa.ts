@@ -67,11 +67,18 @@ const bindVisualViewport = () => {
   const root = document.documentElement
   const sync = () => {
     const viewport = window.visualViewport
-    const keyboard = viewport
-      ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
-      : 0
-    root.style.setProperty("--keyboard-inset", `${keyboard}px`)
-    root.classList.toggle("keyboard-open", keyboard > 80)
+    if (viewport) {
+      root.style.setProperty("--visual-viewport-height", `${viewport.height}px`)
+      root.style.setProperty("--visual-viewport-offset-y", `${viewport.offsetTop}px`)
+      const keyboard = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+      root.style.setProperty("--keyboard-inset", `${keyboard}px`)
+      root.classList.toggle("keyboard-open", keyboard > 80)
+      return
+    }
+    root.style.setProperty("--visual-viewport-height", `${window.innerHeight}px`)
+    root.style.setProperty("--visual-viewport-offset-y", "0px")
+    root.style.setProperty("--keyboard-inset", "0px")
+    root.classList.remove("keyboard-open")
   }
   window.visualViewport?.addEventListener("resize", sync)
   window.visualViewport?.addEventListener("scroll", sync)
@@ -82,8 +89,10 @@ const bindVisualViewport = () => {
 const markDisplayMode = () => {
   const root = document.documentElement
   const standalone = isStandalone()
+  const ios = isIos()
   root.classList.toggle("pwa-standalone", standalone)
-  root.classList.toggle("pwa-ios", isIos() && standalone)
+  root.classList.toggle("pwa-ios", ios && standalone)
+  root.classList.toggle("ios", ios)
 }
 
 let applyUpdate: ((reloadPage?: boolean) => Promise<void>) | undefined

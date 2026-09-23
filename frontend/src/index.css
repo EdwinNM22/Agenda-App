@@ -155,6 +155,8 @@ html.dark:not(.wallpaper) .k-app {
   /* Tab bar (h-16) + márgenes + home indicator — una sola fuente de verdad */
   --agenda-tabbar-offset: calc(var(--k-safe-area-bottom) + 5.75rem);
   --keyboard-inset: 0px;
+  --visual-viewport-height: 100dvh;
+  --visual-viewport-offset-y: 0px;
   /* Altura útil de Home: viewport completo menos tab bar (sin restar safe-top otra vez) */
   --agenda-home-height: calc(100dvh - var(--agenda-tabbar-offset) - var(--keyboard-inset));
 }
@@ -192,12 +194,24 @@ html.pwa-standalone #root {
   max-height: var(--agenda-home-height);
 }
 
-/* Panel de chat: altura fija hasta el safe area superior (no crece con el contenido). */
+/* Panel de chat: ocupa el visual viewport en iOS (Radix + teclado + scroll-lock). */
 .assistant-chat-sheet[data-side="bottom"] {
-  top: var(--k-safe-area-top);
-  bottom: 0;
-  height: auto !important;
-  max-height: none !important;
+  top: calc(var(--k-safe-area-top) + var(--visual-viewport-offset-y, 0px)) !important;
+  right: 0 !important;
+  left: 0 !important;
+  bottom: auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin-inline: 0 !important;
+  height: calc(
+    var(--visual-viewport-height, 100dvh) - var(--k-safe-area-top) -
+      var(--visual-viewport-offset-y, 0px) - var(--keyboard-inset, 0px)
+  ) !important;
+  max-height: calc(
+    var(--visual-viewport-height, 100dvh) - var(--k-safe-area-top) -
+      var(--visual-viewport-offset-y, 0px) - var(--keyboard-inset, 0px)
+  ) !important;
+  transform: none !important;
 }
 
 html.pwa-ios {
@@ -253,7 +267,6 @@ html.wallpaper .glass-surface,
 html.wallpaper [data-slot="card"],
 html.wallpaper [data-slot="input"],
 html.wallpaper [data-slot="textarea"],
-html.wallpaper [data-slot="sheet-content"],
 html.wallpaper [data-slot="popover-content"],
 html.wallpaper [data-slot="select-content"],
 html.wallpaper [data-slot="dialog-content"] {
@@ -262,6 +275,17 @@ html.wallpaper [data-slot="dialog-content"] {
   -webkit-backdrop-filter: blur(16px) saturate(1.2);
   border-color: rgb(255 255 255 / 0.16);
   transform: translateZ(0);
+}
+
+html.wallpaper [data-slot="sheet-content"] {
+  background-color: rgb(18 18 20 / 0.42) !important;
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-color: rgb(255 255 255 / 0.16);
+}
+
+html.ios .assistant-chat-sheet[data-side="bottom"] {
+  --tw-enter-translate-y: 1.25rem;
 }
 
 html.wallpaper [data-slot="input"]:disabled,
@@ -279,13 +303,39 @@ html.wallpaper .glass-surface[data-variant="outline"] {
   color: rgb(255 255 255 / 0.92);
 }
 
-html.wallpaper .assistant-mic {
-  background-color: rgb(18 18 20 / 0.42) !important;
+.assistant-mic-btn {
+  isolation: isolate;
+}
+
+.assistant-mic--ai-core {
+  border-color: rgb(255 255 255 / 0.22);
+  background: linear-gradient(145deg, oklch(0.24 0.06 285), oklch(0.18 0.05 250)) !important;
+  color: white !important;
+  box-shadow:
+    0 12px 32px -10px rgb(129 140 248 / 0.65),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+.assistant-mic-btn--connecting .assistant-mic--ai-core {
+  box-shadow:
+    0 12px 32px -10px rgb(34 211 238 / 0.55),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+html.wallpaper .assistant-mic--ai-core {
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.96), rgb(255 255 255 / 0.88)) !important;
   backdrop-filter: blur(16px) saturate(1.2);
   -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  border: 1px solid rgb(255 255 255 / 0.18);
-  color: white;
-  box-shadow: 0 18px 50px -18px rgb(0 0 0 / 0.55);
+  border: 1px solid rgb(255 255 255 / 0.55);
+  color: oklch(0.22 0.04 285) !important;
+  box-shadow:
+    0 18px 50px -18px rgb(0 0 0 / 0.55),
+    0 0 0 1px rgb(255 255 255 / 0.25);
+}
+
+html.wallpaper .assistant-mic-btn--ai .mix-blend-screen {
+  mix-blend-mode: normal;
+  opacity: 0.85;
 }
 
 .assistant-orb-glow {
@@ -592,9 +642,7 @@ html.wallpaper .agenda-tabbar .liquid-glass canvas {
 @media (prefers-reduced-motion: reduce) {
   .busy-spinner,
   .busy-shimmer,
-  .busy-dots span {
-    animation: none;
-  }
+  .busy-dots span,
 
   .busy-dots span {
     opacity: 0.7;
