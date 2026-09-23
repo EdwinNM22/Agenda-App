@@ -154,8 +154,10 @@ html.dark:not(.wallpaper) .k-app {
   --k-safe-area-right: env(safe-area-inset-right, 0px);
   --k-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --k-safe-area-left: env(safe-area-inset-left, 0px);
-  /* Tab bar (h-16) + márgenes + home indicator — una sola fuente de verdad */
-  --agenda-tabbar-offset: calc(var(--k-safe-area-bottom) + 5.75rem);
+  /* Espacio bajo la pill (no todo el safe-area: queda pegada al borde sin tapar el home). */
+  --agenda-tabbar-bottom-padding: max(0.375rem, calc(var(--k-safe-area-bottom) * 0.28));
+  /* Tab bar (h-16) + padding inferior + margen sobre el contenido */
+  --agenda-tabbar-offset: calc(var(--agenda-tabbar-bottom-padding) + 5.5rem);
   --keyboard-inset: 0px;
   /* Altura útil de Home: viewport completo menos tab bar (sin restar safe-top otra vez) */
   --agenda-home-height: calc(var(--app-height) - var(--agenda-tabbar-offset) - var(--keyboard-inset));
@@ -565,6 +567,10 @@ html.wallpaper .agenda-tabbar .liquid-glass {
 html.wallpaper .agenda-tabbar .liquid-glass__backdrop,
 html.wallpaper .agenda-tabbar .liquid-glass canvas {
   display: none !important;
+}
+
+.agenda-tabbar-wrap {
+  padding-bottom: var(--agenda-tabbar-bottom-padding);
 }
 
 .agenda-tabbar > .pointer-events-none {
