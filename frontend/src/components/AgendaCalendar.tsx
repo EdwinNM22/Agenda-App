@@ -244,7 +244,7 @@ export const AgendaCalendar = ({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <div className="-mx-1 overflow-hidden rounded-2xl border bg-card shadow-sm sm:-mx-5">
         <div className="grid grid-cols-7 border-b bg-muted/40">
           {WEEKDAY_HEADER_LABELS.map((label) => (
             <div
@@ -271,6 +271,7 @@ export const AgendaCalendar = ({
                 const chips = dayTasks.slice(0, MAX_CHIPS)
                 const extra = dayTasks.length - chips.length
                 const { day: dayNumber, month: monthShort } = formatDayMonthCell(day)
+                const showMonthLabel = outside || day.getDate() === 1
 
                 return (
                   <button
@@ -278,7 +279,7 @@ export const AgendaCalendar = ({
                     type="button"
                     onClick={() => onDayPress(day)}
                     className={cn(
-                      "relative flex h-[6rem] flex-col gap-0.5 overflow-hidden border-r p-1 text-left transition-colors last:border-r-0",
+                      "relative flex h-[6rem] flex-col gap-0.5 overflow-hidden border-r p-0.5 text-left transition-colors last:border-r-0 sm:p-1",
                       outside && "bg-muted/20",
                       selected && "z-[1] bg-primary/8 ring-2 ring-inset ring-primary/50",
                       !selected && "hover:bg-muted/35 active:bg-muted/50",
@@ -290,31 +291,40 @@ export const AgendaCalendar = ({
                     }
                     aria-pressed={selected}
                   >
-                    <span className="flex items-start justify-between gap-0.5 px-0.5">
-                      <span
-                        className={cn(
-                          "inline-flex min-w-0 items-baseline gap-0.5 rounded-full px-1 py-0.5 text-left leading-none",
-                          today && "bg-primary px-1.5 text-primary-foreground",
-                          !today && outside && "text-muted-foreground",
-                          !today && !outside && "text-foreground",
-                        )}
-                      >
-                        <span className="text-sm font-semibold tabular-nums">{dayNumber}</span>
+                    <span className="relative min-h-[1.375rem] pr-4 pl-0.5">
+                      <span className="inline-flex max-w-full items-baseline gap-0.5 leading-none">
                         <span
                           className={cn(
-                            "truncate text-[10px] font-medium lowercase",
-                            today ? "text-primary-foreground/85" : "text-muted-foreground",
+                            "inline-flex shrink-0 items-center justify-center font-semibold tabular-nums",
+                            today
+                              ? "min-h-[1.375rem] min-w-[1.375rem] rounded-full bg-primary px-1 text-xs text-primary-foreground"
+                              : "text-sm",
+                            !today && outside && "text-muted-foreground",
+                            !today && !outside && "text-foreground",
                           )}
                         >
-                          {monthShort}
+                          {dayNumber}
                         </span>
+                        {showMonthLabel ? (
+                          <span
+                            className={cn(
+                              "shrink-0 text-[10px] font-medium whitespace-nowrap lowercase",
+                              today ? "text-foreground" : "text-muted-foreground",
+                            )}
+                          >
+                            {monthShort}
+                          </span>
+                        ) : null}
                       </span>
                       {pendingCount > 0 ? (
-                        <span className="rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:text-sky-300">
+                        <span className="absolute top-0 right-0 rounded-full bg-sky-500/15 px-1 py-px text-[9px] font-semibold leading-none text-sky-700 tabular-nums dark:text-sky-300">
                           {pendingCount}
                         </span>
                       ) : dayTasks.length > 0 ? (
-                        <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+                        <span
+                          className="absolute top-1 right-0.5 size-1.5 rounded-full bg-emerald-500"
+                          aria-hidden
+                        />
                       ) : null}
                     </span>
 
