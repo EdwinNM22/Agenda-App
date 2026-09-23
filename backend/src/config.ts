@@ -27,6 +27,7 @@ export const config = {
   corsOrigins: parseCorsOrigins(process.env.CORS_ORIGIN ?? ""),
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   openaiRealtimeModel: process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime-2.1-mini",
+  openaiGreetingModel: process.env.OPENAI_GREETING_MODEL ?? "gpt-4o-mini",
   vapidPublicKey: (process.env.VAPID_PUBLIC_KEY ?? "").trim(),
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY?.trim() ?? "",
   vapidSubject: (process.env.VAPID_SUBJECT ?? "mailto:hola@example.com").trim(),

@@ -4,6 +4,7 @@ import type { RealtimeVoice } from "../voices.js"
 import { buildMainInstructions } from "./prompts/main.js"
 import { CALL_INSTRUCTIONS } from "./prompts/call.js"
 import { CHAT_PANEL_INSTRUCTIONS } from "./prompts/chat-panel.js"
+import { TEXT_CHAT_INSTRUCTIONS } from "./prompts/text-chat.js"
 import { REPORTS_INSTRUCTIONS } from "./prompts/reports.js"
 import { SHARED_TOOLS } from "./tools/shared.tools.js"
 import { ACTIVE_ASSISTANT_SYSTEMS } from "./systems/index.js"
@@ -60,6 +61,34 @@ export const buildAssistantTools = () => [
   ...ACTIVE_ASSISTANT_SYSTEMS.flatMap((system) => system.tools),
   ...SHARED_TOOLS,
 ]
+
+/** Mismas reglas y tools que voz; solo añade modo escrito (sin audio). */
+export const buildTextChatInstructions = (userName: string): string =>
+  [buildAssistantInstructions(userName), ...TEXT_CHAT_INSTRUCTIONS].join(" ")
+
+export type RealtimeTextClientSecretRequest = {
+  session: {
+    type: "realtime"
+    model: string
+    instructions: string
+    output_modalities: ["text"]
+    tools: ReturnType<typeof buildAssistantTools>
+    tool_choice: "auto"
+  }
+}
+
+export const buildRealtimeTextClientSecretRequest = (
+  userName: string,
+): RealtimeTextClientSecretRequest => ({
+  session: {
+    type: "realtime",
+    model: config.openaiRealtimeModel,
+    instructions: buildTextChatInstructions(userName),
+    output_modalities: ["text"],
+    tools: buildAssistantTools(),
+    tool_choice: "auto",
+  },
+})
 
 export const buildRealtimeSession = (userName: string, voice: RealtimeVoice): RealtimeSessionConfig => ({
   type: "realtime",

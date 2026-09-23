@@ -13,7 +13,6 @@ const PRESTAMO_RESOURCES = [
   "creditos",
   "clientes",
   "pagos",
-  "liquidez",
 ] as const
 
 const pickQuery = (query: Record<string, unknown>) => {

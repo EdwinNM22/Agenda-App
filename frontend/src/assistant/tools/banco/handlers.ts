@@ -119,7 +119,7 @@ const queryBancoApi = async (path: string, query: Record<string, string>) => {
 }
 
 export const runQueryBanco = async (
-  channel: RTCDataChannel,
+  channel: import("@/lib/realtimeChannel").RealtimeChannel,
   callId: string,
   raw: string,
 ): Promise<ToolRunResult> => {
@@ -179,7 +179,7 @@ type CreateBancoMovimientoArgs = {
 }
 
 export const runCreateBancoMovimiento = async (
-  channel: RTCDataChannel,
+  channel: import("@/lib/realtimeChannel").RealtimeChannel,
   callId: string,
   raw: string,
 ): Promise<ToolRunResult> => {

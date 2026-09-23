@@ -1,6 +1,11 @@
 import { useCallback, useRef, useState } from "react"
-import type { AssistantMessage, ChatDeltaSource } from "@/lib/assistantChatEvents"
-import type { AssistantChatController } from "@/lib/assistantChatEvents"
+import {
+  PENDING_ASSISTANT_RESPONSE_ID,
+  type AssistantChatController,
+  type AssistantMessage,
+  type ChatDeltaSource,
+} from "@/lib/assistantChatEvents"
+import { clearAssistantMessagesRevealed } from "@/lib/assistantMessageRevealed"
 
 export const useAssistantChatMessages = () => {
   const [messages, setMessages] = useState<AssistantMessage[]>([])
@@ -23,6 +28,7 @@ export const useAssistantChatMessages = () => {
     finalizedResponsesRef.current.clear()
     textChannelResponsesRef.current.clear()
     clearVoiceSkip()
+    clearAssistantMessagesRevealed()
     setMessages([])
   }, [clearVoiceSkip])
 
@@ -189,6 +195,29 @@ export const useAssistantChatMessages = () => {
     [],
   )
 
+  const appendUserMessage = useCallback((text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) {
+      return
+    }
+    setMessages((current) => {
+      const last = current[current.length - 1]
+      if (last?.role === "user" && last.text === trimmed) {
+        return current
+      }
+      return [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          text: trimmed,
+          streaming: false,
+          createdAt: Date.now(),
+        },
+      ]
+    })
+  }, [])
+
   const appendMarkdownMessage = useCallback((markdown: string) => {
     const text = markdown.trim()
     if (!text) {
@@ -207,16 +236,50 @@ export const useAssistantChatMessages = () => {
     skipNextVoiceRef.current = true
   }, [])
 
-  const controllerRef = useRef<AssistantChatController>({ appendDelta, finalize })
+  const beginPendingAssistantReply = useCallback(() => {
+    if (responseToMessageRef.current.has(PENDING_ASSISTANT_RESPONSE_ID)) {
+      return
+    }
+    ensureMessage(PENDING_ASSISTANT_RESPONSE_ID)
+  }, [ensureMessage])
+
+  const beginAssistantResponse = useCallback(
+    (responseId: string) => {
+      if (!responseId || finalizedResponsesRef.current.has(responseId)) {
+        return
+      }
+
+      const pendingMessageId = responseToMessageRef.current.get(PENDING_ASSISTANT_RESPONSE_ID)
+      if (pendingMessageId) {
+        responseToMessageRef.current.delete(PENDING_ASSISTANT_RESPONSE_ID)
+        responseToMessageRef.current.set(responseId, pendingMessageId)
+        responseBuffersRef.current.set(responseId, "")
+        return
+      }
+
+      ensureMessage(responseId)
+    },
+    [ensureMessage],
+  )
+
+  const controllerRef = useRef<AssistantChatController>({
+    appendDelta,
+    finalize,
+    beginAssistantResponse,
+    beginPendingAssistantReply,
+  })
 
   controllerRef.current.appendDelta = appendDelta
   controllerRef.current.finalize = finalize
+  controllerRef.current.beginAssistantResponse = beginAssistantResponse
+  controllerRef.current.beginPendingAssistantReply = beginPendingAssistantReply
 
   return {
     messages,
     resetMessages,
     appendPdfReport,
     appendMarkdownMessage,
+    appendUserMessage,
     clearVoiceSkip,
     chatController: controllerRef,
   }

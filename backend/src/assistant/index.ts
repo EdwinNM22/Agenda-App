@@ -1,4 +1,9 @@
-export { buildAssistantInstructions, buildAssistantTools, buildRealtimeSession } from "./buildSession.js"
+export {
+  buildAssistantInstructions,
+  buildAssistantTools,
+  buildRealtimeSession,
+  buildRealtimeTextClientSecretRequest,
+} from "./buildSession.js"
 export { buildGreetingInstruction } from "./prompts/greeting.js"
 export type { RealtimeSessionConfig } from "./buildSession.js"
 export type { AssistantSystemModule, RealtimeTool, SessionContext } from "./types.js"

@@ -7,7 +7,9 @@ import {
   setAudioSessionType,
 } from "@/audio/audioSession"
 import { api } from "@/lib/api"
-import { handleAssistantChatEvent } from "@/lib/assistantChatEvents"
+import { handleAssistantChatEvent, responseIdFrom } from "@/lib/assistantChatEvents"
+import { channelFromWebSocket, type RealtimeChannel } from "@/lib/realtimeChannel"
+import { handleRealtimeServerEvent } from "@/hooks/handleRealtimeServerEvent"
 import { buildConnectGreeting, sendConnectGreeting } from "@/assistant/runtime/greeting"
 import { handleRealtimeToolEvent } from "@/lib/realtimeTools"
 import { clearSessionToolData } from "@/lib/sessionToolData"
@@ -16,6 +18,7 @@ import { isHangupCommand } from "@/lib/voiceCommands"
 import type { RealtimeVoice } from "@/lib/voices"
 
 export type VoiceStatus = "idle" | "connecting" | "live" | "error"
+export type TextChatStatus = "idle" | "connecting" | "ready"
 
 export type ToolActivity =
   | "create_task"
@@ -185,14 +188,39 @@ export const useRealtimeVoice = () => {
   const [hearingUser, setHearingUser] = useState(false)
   const toolsRef = useRef<string[]>([])
   const [activity, setActivity] = useState<ToolActivity>(null)
-  const { messages, resetMessages, appendPdfReport, appendMarkdownMessage, clearVoiceSkip, chatController } =
-    useAssistantChatMessages()
+  const {
+    messages,
+    resetMessages,
+    appendPdfReport,
+    appendMarkdownMessage,
+    appendUserMessage,
+    clearVoiceSkip,
+    chatController,
+  } = useAssistantChatMessages()
   const appendPdfReportRef = useRef(appendPdfReport)
   appendPdfReportRef.current = appendPdfReport
   const appendMarkdownMessageRef = useRef(appendMarkdownMessage)
   appendMarkdownMessageRef.current = appendMarkdownMessage
+  const appendUserMessageRef = useRef(appendUserMessage)
+  appendUserMessageRef.current = appendUserMessage
   const clearVoiceSkipRef = useRef(clearVoiceSkip)
   clearVoiceSkipRef.current = clearVoiceSkip
+  const pendingTextRef = useRef("")
+  const skipGreetingRef = useRef(false)
+  const statusRef = useRef<VoiceStatus>("idle")
+  const startVoiceRef = useRef<RealtimeVoice | null>(null)
+  const textWsRef = useRef<WebSocket | null>(null)
+  const textChannelRef = useRef<RealtimeChannel | null>(null)
+  const textGenerationRef = useRef(0)
+  const textConnectPromiseRef = useRef<Promise<void> | null>(null)
+  const textOutboxRef = useRef<string[]>([])
+  const textSeenCallIdsRef = useRef<Set<string>>(new Set())
+  const [textStatus, setTextStatus] = useState<TextChatStatus>("idle")
+
+  const setVoiceStatus = useCallback((next: VoiceStatus) => {
+    statusRef.current = next
+    setStatus(next)
+  }, [])
 
   const syncActivity = useCallback(() => {
     const next = pickActivity(toolsRef.current)
@@ -239,15 +267,282 @@ export const useRealtimeVoice = () => {
     setBusy(false)
   }, [])
 
+  const closeTextSession = useCallback(() => {
+    textGenerationRef.current += 1
+    textConnectPromiseRef.current = null
+    textOutboxRef.current = []
+    textSeenCallIdsRef.current = new Set()
+    textChannelRef.current = null
+    if (textWsRef.current) {
+      textWsRef.current.close()
+      textWsRef.current = null
+    }
+    setTextStatus("idle")
+  }, [])
+
   const hangUp = useCallback(() => {
     generationRef.current += 1
+    pendingTextRef.current = ""
+    skipGreetingRef.current = false
+    closeTextSession()
     releaseCall()
-    setStatus("idle")
-  }, [releaseCall])
+    setVoiceStatus("idle")
+  }, [closeTextSession, releaseCall, setVoiceStatus])
 
-  const start = useCallback(async (voice: RealtimeVoice) => {
+  const buildToolHandlers = useCallback(
+    () => ({
+      onHangUp: hangUp,
+      onToolStart: (name: string) => {
+        toolsInFlightRef.current += 1
+        if (TOOL_ACTIVITY.has(name)) {
+          toolsRef.current = [...toolsRef.current, name]
+          syncActivity()
+        }
+        syncBusy()
+      },
+      onToolEnd: (name: string) => {
+        toolsInFlightRef.current = Math.max(0, toolsInFlightRef.current - 1)
+        if (TOOL_ACTIVITY.has(name)) {
+          const index = toolsRef.current.lastIndexOf(name)
+          if (index >= 0) {
+            toolsRef.current = [
+              ...toolsRef.current.slice(0, index),
+              ...toolsRef.current.slice(index + 1),
+            ]
+          }
+          syncActivity()
+        }
+        syncBusy()
+      },
+      onAwaitingResponse: () => {
+        awaitingResponseRef.current = true
+        syncBusy()
+        window.clearTimeout(awaitingTimerRef.current)
+        awaitingTimerRef.current = window.setTimeout(() => {
+          if (!awaitingResponseRef.current) {
+            return
+          }
+          awaitingResponseRef.current = false
+          syncBusy()
+          logIsi("timeout esperando respuesta tras tool")
+        }, 45_000)
+      },
+      shouldEndCall: () => {
+        if (greetingPlayingRef.current || isiSpeakingRef.current) {
+          return false
+        }
+        const last = lastUserTranscriptRef.current
+        if (!isHangupCommand(last)) {
+          return false
+        }
+        return true
+      },
+      onReportGenerated: (report: { url: string; fileName: string; title: string }) => {
+        appendPdfReportRef.current(report)
+      },
+      onStructuredChat: (markdown: string) => {
+        appendMarkdownMessageRef.current(markdown)
+      },
+    }),
+    [hangUp, syncActivity, syncBusy],
+  )
+
+  const sendUserTextOnChannel = useCallback((channel: RealtimeChannel, text: string) => {
+    if (channel.readyState !== "open") {
+      return false
+    }
+    chatController.current.beginPendingAssistantReply()
+    channel.send(
+      JSON.stringify({
+        type: "conversation.item.create",
+        item: {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text }],
+        },
+      }),
+    )
+    channel.send(JSON.stringify({ type: "response.create" }))
+    awaitingResponseRef.current = true
+    syncBusy()
+    return true
+  }, [chatController, syncBusy])
+
+  const sendUserText = useCallback(
+    (text: string) => {
+      const voiceChannel = channelRef.current
+      if (voiceChannel && voiceChannel.readyState === "open") {
+        return sendUserTextOnChannel(voiceChannel, text)
+      }
+      const textChannel = textChannelRef.current
+      if (textChannel) {
+        return sendUserTextOnChannel(textChannel, text)
+      }
+      return false
+    },
+    [sendUserTextOnChannel],
+  )
+
+  const flushTextOutbox = useCallback(() => {
+    const channel = textChannelRef.current
+    if (!channel || channel.readyState !== "open") {
+      return
+    }
+    while (textOutboxRef.current.length > 0) {
+      const next = textOutboxRef.current.shift()
+      if (next) {
+        sendUserTextOnChannel(channel, next)
+      }
+    }
+  }, [sendUserTextOnChannel])
+
+  const ensureTextSession = useCallback(async () => {
+    if (textChannelRef.current?.readyState === "open") {
+      return
+    }
+    if (textConnectPromiseRef.current) {
+      await textConnectPromiseRef.current
+      return
+    }
+
+    const generation = textGenerationRef.current + 1
+    textGenerationRef.current = generation
+    setTextStatus("connecting")
+    setError(null)
+
+    textConnectPromiseRef.current = (async () => {
+      try {
+        const session = await api<{ clientSecret: string; model: string }>("/realtime/text-session", {
+          method: "POST",
+        })
+        if (generation !== textGenerationRef.current) {
+          return
+        }
+
+        const ws = new WebSocket(
+          `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(session.model)}`,
+          ["realtime", `openai-insecure-api-key.${session.clientSecret}`],
+        )
+        textWsRef.current = ws
+        const channel = channelFromWebSocket(ws)
+        textChannelRef.current = channel
+        textSeenCallIdsRef.current = new Set()
+
+        await new Promise<void>((resolve, reject) => {
+          const fail = (message: string) => {
+            if (generation !== textGenerationRef.current) {
+              return
+            }
+            reject(new Error(message))
+          }
+
+          ws.addEventListener(
+            "open",
+            () => {
+              if (generation !== textGenerationRef.current) {
+                return
+              }
+              channel.send(
+                JSON.stringify({
+                  type: "session.update",
+                  session: {
+                    type: "realtime",
+                    output_modalities: ["text"],
+                  },
+                }),
+              )
+              setTextStatus("ready")
+              flushTextOutbox()
+              resolve()
+            },
+            { once: true },
+          )
+
+          ws.addEventListener(
+            "error",
+            () => {
+              fail("No se pudo conectar el chat de texto")
+            },
+            { once: true },
+          )
+
+          ws.addEventListener(
+            "close",
+            () => {
+              if (generation !== textGenerationRef.current) {
+                return
+              }
+              textChannelRef.current = null
+              textWsRef.current = null
+              setTextStatus("idle")
+            },
+            { once: true },
+          )
+        })
+
+        ws.addEventListener("message", (message) => {
+          if (generation !== textGenerationRef.current) {
+            return
+          }
+          let event: unknown
+          try {
+            event = JSON.parse(message.data as string)
+          } catch {
+            return
+          }
+          const record = event as Record<string, unknown>
+          handleRealtimeServerEvent(record, {
+            chat: chatController.current,
+            channel,
+            seenCallIds: textSeenCallIdsRef.current,
+            toolHandlers: buildToolHandlers(),
+            onResponseCreated: (responseId) => {
+              awaitingResponseRef.current = false
+              responseOpenRef.current += 1
+              syncBusy()
+              chatController.current.beginAssistantResponse(responseId)
+            },
+            onResponseDone: () => {
+              awaitingResponseRef.current = false
+              responseOpenRef.current = Math.max(0, responseOpenRef.current - 1)
+              syncBusy()
+            },
+          })
+        })
+      } catch (err) {
+        if (generation !== textGenerationRef.current) {
+          return
+        }
+        closeTextSession()
+        setError(err instanceof Error ? err.message : "No se pudo abrir el chat de texto")
+        throw err
+      } finally {
+        if (generation === textGenerationRef.current) {
+          textConnectPromiseRef.current = null
+        }
+      }
+    })()
+
+    await textConnectPromiseRef.current
+  }, [buildToolHandlers, chatController, closeTextSession, flushTextOutbox, syncBusy])
+
+  const flushPendingText = useCallback(() => {
+    const text = pendingTextRef.current.trim()
+    if (!text) {
+      return
+    }
+    pendingTextRef.current = ""
+    if (!sendUserText(text)) {
+      pendingTextRef.current = text
+    }
+  }, [sendUserText])
+
+  const start = useCallback(async (voice: RealtimeVoice, options?: { skipGreeting?: boolean }) => {
+    closeTextSession()
     const generation = generationRef.current + 1
     generationRef.current = generation
+    startVoiceRef.current = voice
+    skipGreetingRef.current = options?.skipGreeting ?? Boolean(pendingTextRef.current.trim())
     peerRef.current?.close()
     peerRef.current = null
     channelRef.current = null
@@ -256,7 +551,7 @@ export const useRealtimeVoice = () => {
     setRemoteStream(null)
     setError(null)
     resetMessages()
-    setStatus("connecting")
+    setVoiceStatus("connecting")
 
     try {
       const micStream = await captureMicrophone()
@@ -310,12 +605,25 @@ export const useRealtimeVoice = () => {
         greetingResponseOpen = false
         logIsi("abrió el turno después del saludo")
         setListening(true, greetChannelRef.current ?? channelRef.current)
+        flushPendingText()
         syncBusy()
       }
 
       const attemptConnectGreeting = () => {
         const channel = greetChannelRef.current
-        if (greetedRef.current || !channel || channel.readyState !== "open" || !greetingInstruction.trim()) {
+        if (greetedRef.current || !channel || channel.readyState !== "open") {
+          return
+        }
+        if (skipGreetingRef.current) {
+          greetedRef.current = true
+          greetingPlayingRef.current = false
+          logIsi("omitió el saludo: hay un mensaje del usuario")
+          setListening(true, channel)
+          flushPendingText()
+          syncBusy()
+          return
+        }
+        if (!greetingInstruction.trim()) {
           return
         }
         greetedRef.current = true
@@ -453,6 +761,7 @@ export const useRealtimeVoice = () => {
             const heard = nestedTranscript(record) || assistantHeardBuffer
             if (heard) {
               lastUserTranscriptRef.current = heard
+              appendUserMessageRef.current(heard)
             }
             if (greetedRef.current && !greetingPlayingRef.current) {
               window.clearTimeout(userTurnFallbackTimer)
@@ -483,6 +792,7 @@ export const useRealtimeVoice = () => {
             awaitingResponseRef.current = false
             responseOpenRef.current += 1
             syncBusy()
+            chatController.current.beginAssistantResponse(responseIdFrom(record))
           }
           if (type === "response.done") {
             window.clearTimeout(awaitingTimerRef.current)
@@ -603,16 +913,61 @@ export const useRealtimeVoice = () => {
 
       await peer.setRemoteDescription({ type: "answer", sdp: session.sdp })
       attemptConnectGreeting()
-      setStatus("live")
+      setVoiceStatus("live")
+      flushPendingText()
     } catch (err) {
       if (generation !== generationRef.current) {
         return
       }
       hangUp()
-      setStatus("error")
+      setVoiceStatus("error")
       setError(describeMicError(err))
     }
-  }, [chatController, hangUp, releaseCall, resetMessages, syncActivity, syncBusy])
+  }, [
+    chatController,
+    closeTextSession,
+    flushPendingText,
+    hangUp,
+    releaseCall,
+    resetMessages,
+    setVoiceStatus,
+    syncActivity,
+    syncBusy,
+  ])
+
+  const sendText = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim()
+      if (!trimmed) {
+        return
+      }
+      appendUserMessageRef.current(trimmed)
+
+      if (statusRef.current === "live") {
+        if (!sendUserText(trimmed)) {
+          pendingTextRef.current = trimmed
+        }
+        return
+      }
+      if (statusRef.current === "connecting") {
+        pendingTextRef.current = trimmed
+        return
+      }
+
+      try {
+        await ensureTextSession()
+        const channel = textChannelRef.current
+        if (channel?.readyState === "open") {
+          sendUserTextOnChannel(channel, trimmed)
+        } else {
+          textOutboxRef.current.push(trimmed)
+        }
+      } catch {
+        // error ya en setError
+      }
+    },
+    [ensureTextSession, sendUserText, sendUserTextOnChannel],
+  )
 
   useEffect(() => {
     return () => {
@@ -622,8 +977,10 @@ export const useRealtimeVoice = () => {
 
   return {
     status,
+    textStatus,
     error,
     start,
+    sendText,
     hangUp,
     audioRef,
     localStream,

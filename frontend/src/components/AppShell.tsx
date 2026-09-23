@@ -1,12 +1,14 @@
 import type { ReactNode } from "react"
-import { CheckSquare, Home, Settings2, Wallet } from "lucide-react"
+import { CalendarDays, Home, Settings2, Wallet } from "lucide-react"
 import { App, Icon, Tabbar, TabbarLink, ToolbarPane } from "konsta/react"
 import { LiquidGlass } from "liquid-glass-backdrop-react"
 import { motion } from "motion/react"
 import { useLocation, useNavigate } from "react-router-dom"
+import { AssistantChatSheet } from "@/components/AssistantChatSheet"
 import { FloatingAssistant } from "@/components/FloatingAssistant"
 import { useHideOnScroll } from "@/hooks/useHideOnScroll"
 import { TasksProvider } from "@/lib/tasks-store"
+import { AssistantSheetProvider, useAssistantSheet } from "@/lib/assistantSheet"
 import { VoiceAssistantProvider } from "@/lib/voice-assistant"
 import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
@@ -21,7 +23,7 @@ const tabs = [
     to: "/tareas",
     label: "Agenda",
     match: (path: string) => path.startsWith("/tareas"),
-    Icon: CheckSquare,
+    Icon: CalendarDays,
   },
   {
     to: "/banco",
@@ -73,7 +75,9 @@ const ShellChrome = () => {
   const { theme } = useTheme()
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const hidden = useHideOnScroll(pathname)
+  const { open: assistantSheetOpen } = useAssistantSheet()
+  const hidden =
+    useHideOnScroll(pathname) || (assistantSheetOpen && pathname === "/")
 
   return (
     <App
@@ -103,6 +107,7 @@ const ShellChrome = () => {
         </TabScreen>
       </div>
 
+      <AssistantChatSheet />
       <FloatingAssistant />
 
       <motion.div
@@ -166,8 +171,10 @@ const ShellChrome = () => {
 
 export const AppShell = () => (
   <VoiceAssistantProvider>
-    <TasksProvider>
-      <ShellChrome />
-    </TasksProvider>
+    <AssistantSheetProvider>
+      <TasksProvider>
+        <ShellChrome />
+      </TasksProvider>
+    </AssistantSheetProvider>
   </VoiceAssistantProvider>
 )

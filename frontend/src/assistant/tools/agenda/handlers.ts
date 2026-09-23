@@ -10,6 +10,7 @@ import {
 } from "@/lib/tasks"
 import { notifyTasksChanged } from "@/lib/taskEvents"
 import { resolvePrestamoPeriodPhrase } from "@/assistant/shared/period"
+import type { RealtimeChannel } from "@/lib/realtimeChannel"
 import { finishTool } from "../runtime"
 import type { ToolRunResult } from "../types"
 
@@ -52,7 +53,7 @@ const parseTaskArgs = (
 }
 
 export const runCreateTask = async (
-  channel: RTCDataChannel,
+  channel: RealtimeChannel,
   callId: string,
   rawArgs: string,
 ): Promise<ToolRunResult> => {
@@ -103,7 +104,7 @@ const parseListDate = (raw: string): string | undefined => {
 }
 
 export const runListTasks = async (
-  channel: RTCDataChannel,
+  channel: RealtimeChannel,
   callId: string,
   rawArgs: string,
 ): Promise<ToolRunResult> => {
@@ -153,7 +154,7 @@ const findTaskById = async (id: number) => {
 }
 
 export const runUpdateTask = async (
-  channel: RTCDataChannel,
+  channel: RealtimeChannel,
   callId: string,
   rawArgs: string,
 ): Promise<ToolRunResult> => {
@@ -262,7 +263,7 @@ export const runUpdateTask = async (
 }
 
 export const runDeleteTask = async (
-  channel: RTCDataChannel,
+  channel: RealtimeChannel,
   callId: string,
   rawArgs: string,
 ): Promise<ToolRunResult> => {

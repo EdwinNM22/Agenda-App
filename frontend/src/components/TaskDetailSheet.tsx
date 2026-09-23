@@ -127,7 +127,8 @@ export const TaskDetailSheet = ({ task, open, onOpenChange, onChanged }: TaskDet
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="z-60 gap-0 overflow-y-auto rounded-t-3xl pb-[calc(var(--k-safe-area-bottom)+1rem)]"
+        overlayClassName="z-[88]"
+        className="z-[90] mx-auto w-full max-w-lg gap-0 overflow-y-auto rounded-t-3xl border-t pb-[calc(var(--k-safe-area-bottom)+1rem)] data-[side=bottom]:max-h-[min(88dvh,calc(100dvh-var(--keyboard-inset)-var(--k-safe-area-top)))]"
       >
         {task ? (
           <form onSubmit={onSave}>

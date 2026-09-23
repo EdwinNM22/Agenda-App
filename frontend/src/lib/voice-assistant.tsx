@@ -9,7 +9,14 @@ import {
   type RefObject,
 } from "react"
 import { useAudioLevel } from "@/hooks/useAudioLevel"
-import { useRealtimeVoice, type AssistantMessage, type ToolActivity, type VoiceStatus } from "@/hooks/useRealtimeVoice"
+import {
+  useRealtimeVoice,
+  type AssistantMessage,
+  type TextChatStatus,
+  type ToolActivity,
+  type VoiceStatus,
+} from "@/hooks/useRealtimeVoice"
+import { useConversationTitle } from "@/hooks/useConversationTitle"
 import { useSilenceHangup } from "@/hooks/useSilenceHangup"
 import {
   DEFAULT_VOICE,
@@ -21,8 +28,10 @@ const VOICE_STORAGE_KEY = "agenda.realtimeVoice"
 
 type VoiceAssistantContextValue = {
   status: VoiceStatus
+  textStatus: TextChatStatus
   error: string | null
   start: (voice?: RealtimeVoice) => Promise<void>
+  sendText: (text: string) => Promise<void>
   hangUp: () => void
   audioRef: RefObject<HTMLAudioElement | null>
   localStream: MediaStream | null
@@ -31,6 +40,7 @@ type VoiceAssistantContextValue = {
   hearingUser: boolean
   activity: ToolActivity
   messages: AssistantMessage[]
+  conversationTitle: string | null
   voiceLevel: number
   userLevel: number
   voice: RealtimeVoice
@@ -47,8 +57,22 @@ const loadSavedVoice = (): RealtimeVoice => {
 }
 
 export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) => {
-  const { status, error, start: startSession, hangUp, audioRef, localStream, remoteStream, busy, hearingUser, activity, messages } =
-    useRealtimeVoice()
+  const {
+    status,
+    textStatus,
+    error,
+    start: startSession,
+    sendText: sendTextSession,
+    hangUp,
+    audioRef,
+    localStream,
+    remoteStream,
+    busy,
+    hearingUser,
+    activity,
+    messages,
+  } = useRealtimeVoice()
+  const conversationTitle = useConversationTitle(messages)
   const voiceLevel = useAudioLevel(remoteStream)
   const userLevel = useAudioLevel(localStream)
   const [voice, setVoiceState] = useState<RealtimeVoice>(DEFAULT_VOICE)
@@ -71,13 +95,22 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
     [startSession, voice],
   )
 
+  const sendText = useCallback(
+    async (text: string) => {
+      await sendTextSession(text)
+    },
+    [sendTextSession],
+  )
+
   useSilenceHangup(live, userLevel, voiceLevel, hangUp, busy || hearingUser)
 
   const value = useMemo(
     () => ({
       status,
+      textStatus,
       error,
       start,
+      sendText,
       hangUp,
       audioRef,
       localStream,
@@ -86,6 +119,7 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
       hearingUser,
       activity,
       messages,
+      conversationTitle,
       voiceLevel,
       userLevel,
       voice,
@@ -95,8 +129,10 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
     }),
     [
       status,
+      textStatus,
       error,
       start,
+      sendText,
       hangUp,
       audioRef,
       localStream,
@@ -105,6 +141,7 @@ export const VoiceAssistantProvider = ({ children }: { children: ReactNode }) =>
       hearingUser,
       activity,
       messages,
+      conversationTitle,
       voiceLevel,
       userLevel,
       voice,

@@ -23,7 +23,7 @@ clientsClaim()
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 
-const apiPrefixes = ["/auth", "/tasks", "/banco", "/realtime", "/health", "/ws", "/push", "/api"]
+const apiPrefixes = ["/auth", "/tasks", "/banco", "/realtime", "/assistant", "/health", "/ws", "/push", "/api"]
 
 registerRoute(
   ({ url }) => apiPrefixes.some((prefix) => url.pathname.startsWith(prefix)),

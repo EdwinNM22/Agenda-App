@@ -5,8 +5,11 @@ export type AssistantPdfAttachment = {
   title: string
 }
 
+export type ChatMessageRole = "user" | "assistant"
+
 export type AssistantMessage = {
   id: string
+  role?: ChatMessageRole
   text: string
   streaming: boolean
   createdAt: number
@@ -15,9 +18,13 @@ export type AssistantMessage = {
 
 export type ChatDeltaSource = "text" | "transcript"
 
+export const PENDING_ASSISTANT_RESPONSE_ID = "__pending_assistant_response__"
+
 export type AssistantChatController = {
   appendDelta: (responseId: string, delta: string, source: ChatDeltaSource) => void
   finalize: (responseId: string, text?: string, source?: ChatDeltaSource) => void
+  beginAssistantResponse: (responseId: string) => void
+  beginPendingAssistantReply: () => void
 }
 
 export const responseIdFrom = (event: Record<string, unknown>) => {

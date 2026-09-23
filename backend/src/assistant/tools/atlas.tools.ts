@@ -23,7 +23,6 @@ export const ATLAS_TOOLS: RealtimeTool[] = [
             "creditos",
             "clientes",
             "pagos",
-            "liquidez",
           ],
           description:
             "Qué datos consultar. pagos = cobros de cuotas/abonos con cliente. ingresos/egresos = movimientos de caja (motivo, sin cliente). cuotas-vencidas = mora con nombre de cliente.",

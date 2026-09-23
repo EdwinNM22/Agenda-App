@@ -192,6 +192,14 @@ html.pwa-standalone #root {
   max-height: var(--agenda-home-height);
 }
 
+/* Panel de chat: altura fija hasta el safe area superior (no crece con el contenido). */
+.assistant-chat-sheet[data-side="bottom"] {
+  top: var(--k-safe-area-top);
+  bottom: 0;
+  height: auto !important;
+  max-height: none !important;
+}
+
 html.pwa-ios {
   -webkit-tap-highlight-color: transparent;
 }
@@ -380,6 +388,36 @@ html.wallpaper .assistant-mic {
 
 .assistant-bubble-streaming {
   box-shadow: 0 0 0 1px rgb(from var(--primary) r g b / 0.12);
+}
+
+.composer-tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.45rem;
+  align-content: flex-start;
+  width: 100%;
+  max-height: 4.35rem;
+  overflow: hidden;
+}
+
+.composer-tag-chip {
+  flex: 1 1 auto;
+  min-width: min(100%, 4.75rem);
+  justify-content: center;
+}
+
+.assistant-reply-bubble--loading {
+  min-height: 5.5rem;
+  transition:
+    width 0.22s ease,
+    min-height 0.22s ease;
+}
+
+.assistant-reply-bubble-body--loading {
+  min-height: 3.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 @keyframes assistant-caret-blink {

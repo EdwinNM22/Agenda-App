@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto"
 import type { FastifyInstance } from "fastify"
-import { buildRealtimeSession, buildGreetingInstruction } from "../assistant/index.js"
+import {
+  buildGreetingInstruction,
+  buildRealtimeSession,
+  buildRealtimeTextClientSecretRequest,
+} from "../assistant/index.js"
 import { config } from "../config.js"
 import { pool, type UserRow } from "../db.js"
 import { getVoicePreview } from "../voicePreview.js"
@@ -86,6 +90,70 @@ export const registerRealtimeRoutes = async (app: FastifyInstance) => {
       }
 
       return { sdp: payload, userName, greetingInstruction: buildGreetingInstruction(userName) }
+    },
+  )
+
+  app.post(
+    "/realtime/text-session",
+    { onRequest: [app.authenticate] },
+    async (request, reply) => {
+      if (!config.openaiApiKey) {
+        return reply.code(503).send({
+          message: "Falta OPENAI_API_KEY en backend/.env",
+        })
+      }
+
+      const [userRows] = await pool.query<UserRow[]>(
+        "SELECT name FROM users WHERE id = :id LIMIT 1",
+        { id: request.user.sub },
+      )
+      const userName = userRows[0]?.name?.trim().split(/\s+/)[0] || "ahí"
+
+      const safetyId = createHash("sha256")
+        .update(`agenda:${request.user.sub}`)
+        .digest("hex")
+
+      const openaiResponse = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.openaiApiKey}`,
+          "Content-Type": "application/json",
+          "OpenAI-Safety-Identifier": safetyId,
+        },
+        body: JSON.stringify(buildRealtimeTextClientSecretRequest(userName)),
+      })
+
+      const payload = await openaiResponse.text()
+      if (!openaiResponse.ok) {
+        let message = "No se pudo iniciar el chat de texto"
+        try {
+          const parsed = JSON.parse(payload) as { error?: { message?: string } }
+          if (parsed.error?.message) {
+            message = parsed.error.message
+          }
+        } catch {
+          // respuesta no JSON
+        }
+        request.log.warn(
+          { status: openaiResponse.status, body: payload.slice(0, 500) },
+          "OpenAI Realtime rechazó sesión de texto",
+        )
+        return reply.code(502).send({ message })
+      }
+
+      const secret = JSON.parse(payload) as {
+        value?: string
+        session?: { model?: string }
+      }
+      const clientSecret = secret.value?.trim()
+      if (!clientSecret) {
+        return reply.code(502).send({ message: "OpenAI no devolvió credencial de chat" })
+      }
+
+      return {
+        clientSecret,
+        model: secret.session?.model?.trim() || config.openaiRealtimeModel,
+      }
     },
   )
 

@@ -1,8 +1,9 @@
 # Reglas de Isi (asistente de voz)
 
 Documento de referencia con **todas las reglas vigentes** del asistente.  
-**Fuente principal:** `backend/src/routes/realtime.ts` (instrucciones de sesión y definición de tools).  
-**Complementos en código:** `frontend/src/hooks/useRealtimeVoice.ts`, `frontend/src/lib/realtimeTools.ts`, `frontend/src/lib/prestamoPeriod.ts`, `frontend/src/lib/voiceCommands.ts`.
+**Fuente principal:** `backend/src/assistant/` (instrucciones MAIN/CORE, sistemas y tools).  
+**Ensamblaje de sesión:** `backend/src/assistant/buildSession.ts` (usado por `backend/src/routes/realtime.ts`).  
+**Complementos en código:** `frontend/src/hooks/useRealtimeVoice.ts`, `frontend/src/assistant/tools/`, `frontend/src/assistant/shared/period.ts`, `frontend/src/lib/voiceCommands.ts`.
 
 > Las fechas de referencia (`hoy`, `mañana`) se inyectan al crear cada sesión y cambian según el momento de la llamada.
 
@@ -23,18 +24,19 @@ Documento de referencia con **todas las reglas vigentes** del asistente.
 
 ### 1.2 Idioma
 
-- Hablar **siempre en español** (voz y texto).
-- Entender al usuario aunque hable otro idioma, pero responder solo en español.
-- Si piden cambiar de idioma, no cambiar: una frase breve en español y seguir ayudando.
-- Títulos y descripciones de tareas generadas por Isi van en español.
-- **Excepción única a otras reglas:** el idioma español tiene prioridad aunque el usuario pida otro.
+- Responder **en el mismo idioma en que hable el usuario** (español, inglés u otro): voz y texto.
+- Si el usuario cambia de idioma, Isi cambia en la siguiente respuesta. No mezclar idiomas en una misma frase.
+- Si piden hablar en otro idioma, cambiar a ese idioma y seguir ayudando.
+- Títulos y descripciones de tareas, y títulos de reportes, van en el idioma del usuario.
+- En tools, las fechas/períodos usan `YYYY-MM-DD` o expresiones canónicas (`hoy`/`today`, `ayer`/`yesterday`, `esta semana`/`this week`, etc.).
+- El saludo inicial es breve; desde la primera frase del usuario se sigue su idioma. Nunca decir que no puede hablar otro idioma.
 
 ### 1.3 Identidad
 
 | Aspecto | Regla |
 | --- | --- |
 | Nombre | EC, pronunciado siempre **«isi»**. Nunca «ese», «e ce», «e se» ni letra por letra |
-| Presentación | Si preguntan quién es: «Soy Isi» |
+| Presentación | Si preguntan quién es: «Soy Isi» / «I'm Isi» (en el idioma del usuario) |
 | Alias del usuario | Usar solo el primer nombre del usuario (inyectado en sesión). No inventar ni cambiar nombres |
 | Cómo le llaman | EC, Isi, isi, Easy → se refieren a ella |
 | Prohibido decir | ChatGPT, GPT, OpenAI, IA, modelo de lenguaje |
@@ -62,17 +64,13 @@ Documento de referencia con **todas las reglas vigentes** del asistente.
 
 - Debajo del orbe hay un panel de solo lectura.
 - La **voz** se muestra como transcripción.
-- El frontend solo inserta Markdown (tabla/lista) cuando hay un **listado de registros** (`list_tasks` o recursos Atlas de lista: cuotas, pagos, ingresos, etc.) con filas y columnas conocidas.
-- Resúmenes / KPIs (caja-chica, liquidez, resumen, etc.) o consultas sin filas: **no** hay tarjeta; se muestra la respuesta de Isi.
+- El frontend solo inserta Markdown (tabla/lista) cuando hay un **listado de registros** (`list_tasks`, `query_banco` o recursos Atlas de lista: cuotas, pagos, ingresos, etc.) con filas y columnas conocidas.
+- Resúmenes / KPIs (caja-chica, resumen, etc.) o consultas sin filas: **no** hay tarjeta; se muestra la respuesta de Isi.
 - Si hubo tabla, no se duplica la transcripción de esa misma respuesta.
 
-### 1.7 Saludo inicial (código cliente)
+### 1.7 Saludo inicial (conexión de llamada)
 
-Al conectar la llamada, el cliente envía un `response.create` con:
-
-> Saluda al usuario en una sola frase, cercana y breve. Preséntate como Isi. No listes funciones ni preguntes qué puede hacer. No sigas hablando. Espera en silencio.
-
-Mientras el saludo suena, el micrófono no escucha turnos del usuario.
+Definido en `backend/src/assistant/prompts/greeting.ts`. El backend lo devuelve en `POST /realtime/session` como `greetingInstruction` y el frontend lo envía vía `response.create` usando `frontend/src/assistant/runtime/greeting.ts`.
 
 ---
 
@@ -106,7 +104,7 @@ Recordatorios y tareas que el usuario creó **en esta app**. No es el negocio de
 
 ### 2.4 Consultar tareas (`list_tasks`)
 
-- Un día concreto → `date` en `YYYY-MM-DD` o expresión relativa (`hoy`, `ayer`, `mañana`); la app resuelve la fecha.
+- Un día concreto → `date` en `YYYY-MM-DD` o expresión relativa (`hoy`/`today`, `ayer`/`yesterday`, `mañana`/`tomorrow`); la app resuelve la fecha.
 - Sin `date` → lista todas las tareas (hasta 30 en la respuesta de la tool).
 - Cada tarea incluye `status` / `statusLabel` (`pending`, `completed`, `cancelled`, `archived`) y `group` (`overdue`, `today`, `tomorrow`, `upcoming`, `none`) según `dueAt` y la fecha actual.
 - Máximo 30 tareas en el JSON devuelto al modelo.
@@ -115,7 +113,7 @@ Recordatorios y tareas que el usuario creó **en esta app**. No es el negocio de
 
 **Contenido**
 
-- Isi deduce título y descripción de lo que dijo el usuario.
+- Isi deduce título y descripción de lo que dijo el usuario, **en el idioma del usuario**.
 - No pedir título y descripción por separado.
 - La descripción solo describe qué hay que hacer.
 - Prohibido poner fecha, hora, AM, PM o «a las X» en la descripción.
@@ -184,9 +182,10 @@ Recordatorios y tareas que el usuario creó **en esta app**. No es el negocio de
 
 Palabras y temas que disparan `query_prestamo`:
 
-- Atlas, multipréstamos, préstamos, la caja, cobros, mora, morosos
-- Clientes del negocio, créditos, finanzas del negocio
-- Quién viene a pagar, cuotas del día, ingresos, egresos, pagos, liquidez
+- Atlas, multipréstamos, préstamos, cobros, mora, morosos
+- Clientes del negocio, créditos, finanzas del negocio de préstamos
+- Quién viene a pagar, cuotas del día, ingresos, egresos, pagos, caja chica de Atlas
+- «La caja» / «caja chica» sin más contexto: Banco si parece finanzas de la app; Atlas si menciona cobros, cuotas, clientes o multipréstamos
 
 ### 3.2 Fuente de verdad
 
@@ -210,7 +209,8 @@ Palabras y temas que disparan `query_prestamo`:
 | `ingresos` | Movimientos de ingreso de **caja** (motivo/tipo; **sin** cliente de crédito) |
 | `egresos` | Egresos del período (+ desembolsos embebidos en listado) |
 | `resumen` | KPIs de cartera |
-| `liquidez` | Saldo actual y KPIs (no histórico de un día) |
+
+**Caja en Atlas:** solo `caja-chica` (saldo inicial, cuánto hay, ingresos/egresos del período; desembolsos en egresos). Isi **no** usa el término liquidez ni el recurso `liquidez`.
 
 ### 3.4 Parámetros de período
 
@@ -218,7 +218,7 @@ El modelo puede pasar:
 
 | Param | Uso |
 | --- | --- |
-| `periodo` | Expresión del usuario: hoy, ayer, esta semana, semana pasada, este mes, mes pasado, este año, año pasado |
+| `periodo` | Expresión del usuario: hoy/today, ayer/yesterday, esta semana/this week, semana pasada/last week, este mes/this month, mes pasado/last month, este año/this year, año pasado/last year |
 | `fecha` | Un solo día (`YYYY-MM-DD` o relativo) |
 | `fechaInicio` + `fechaFin` | Rango explícito |
 | `year` | Año completo (`caja-chica`, `caja-chica-detalle`) |
@@ -231,15 +231,15 @@ El modelo puede pasar:
 
 | Período | Rango calculado |
 | --- | --- |
-| hoy / ayer / mañana | Un día |
-| esta semana | Lunes de esta semana → hoy |
-| semana pasada | Lunes–domingo de la semana anterior |
-| este mes | Día 1 del mes → hoy |
-| mes pasado | Mes calendario anterior completo |
-| este año | 1 ene → hoy |
-| año pasado | Año anterior completo |
+| hoy / today / ayer / yesterday / mañana / tomorrow | Un día |
+| esta semana / this week | Lunes de esta semana → hoy |
+| semana pasada / last week | Lunes–domingo de la semana anterior |
+| este mes / this month | Día 1 del mes → hoy |
+| mes pasado / last month | Mes calendario anterior completo |
+| este año / this year | 1 ene → hoy |
+| año pasado / last year | Año anterior completo |
 
-Acepta variantes como «los de este mes» (normaliza la frase antes de resolver).
+Acepta variantes como «los de este mes» o «the last week» (normaliza la frase antes de resolver).
 
 ### 3.5 Reglas de período (no mezclar)
 
@@ -266,7 +266,7 @@ Tras cada consulta, la tool añade al JSON:
 
 ### 3.7 Análisis
 
-- Interpretar solo los datos consultados (ingresos vs egresos, mora, liquidez).
+- Interpretar solo los datos consultados (ingresos vs egresos, mora, caja del período).
 - No memorizar respuestas ni sugerir pasos que el usuario no pidió.
 
 ### 3.8 Créditos y desembolsos (respuesta breve primero)
@@ -283,9 +283,45 @@ Tras cada consulta, la tool añade al JSON:
 
 ---
 
-## 4. Sistema: Llamada (`end_call`)
+## 4. Sistema: Banco (finanzas de EC Assistant)
 
-### 4.1 Cuándo colgar (instrucción al modelo)
+**Banco** = caja chica compartida de la app (pestaña Banco). Ingresos y egresos son globales; cada movimiento guarda quién lo registró, pero el saldo no es por usuario. Distinto de Atlas/Multipréstamos.
+
+### 4.1 Cuándo usar Banco
+
+| Usuario dice (ejemplos) | Tool |
+| --- | --- |
+| Banco, mi banco, caja chica de la app, finanzas de EC Assistant | `query_banco` |
+| Mis ingresos / egresos (sin préstamos ni clientes) | `query_banco` |
+| Cuánto hay en caja (sin cobros/cuotas/clientes) | `query_banco` resource `caja-chica` |
+| Registrar un ingreso o egreso | `create_banco_movimiento` |
+
+### 4.2 Recursos (`query_banco.resource`)
+
+| Resource | Uso |
+| --- | --- |
+| `caja-chica` | Saldo y totales del período (sin filas ni `motivo`) |
+| `ingresos` | Listado de ingresos; cada fila trae `motivo`, `monto`, `fecha`, `registradoPor` |
+| `egresos` | Listado de egresos; igual que ingresos + `destinoLabel` |
+| `movimientos` | Ingresos y egresos juntos (mismos campos) |
+
+Params de período: `periodo`, `fecha`, `fechaInicio`/`fechaFin`, `limit`. Sin período en listados → movimientos recientes (como la pestaña Banco), no solo hoy.
+
+### 4.3 Registrar movimiento
+
+- Ingreso: `tipo`, `monto`, `motivo`. Fecha opcional `YYYY-MM-DD`; sin fecha → hoy.
+- Egreso: además `destino` obligatorio (`ec_construction` o `multiprestamos_atlas`). Por ahora solo registra el egreso aquí.
+- Toda cifra debe salir de `query_banco` o confirmarse con `create_banco_movimiento`.
+
+### 4.4 PDF
+
+Consultar primero con `query_banco` y luego `generate_report_pdf` con `source=banco`.
+
+---
+
+## 5. Sistema: Llamada (`end_call`)
+
+### 5.1 Cuándo colgar (instrucción al modelo)
 
 Solo llamar `end_call` si el usuario se despide **con claridad**:
 
@@ -293,7 +329,7 @@ Solo llamar `end_call` si el usuario se despide **con claridad**:
 
 **No colgar** por: ruido, eco de su propia voz, saludo suelto, «gracias» sin contexto, su nombre solo. Si no está segura → seguir en la llamada.
 
-### 4.2 Validación en cliente
+### 5.2 Validación en cliente
 
 El cliente **bloquea** `end_call` si:
 
@@ -304,17 +340,17 @@ Si se bloquea, la tool devuelve: `{ ok: false, message: "No cuelgues: el usuario
 
 ---
 
-## 5. Sistema: Reportes PDF (`generate_report_pdf`)
+## 6. Sistema: Reportes PDF (`generate_report_pdf`)
 
 Capacidad **general** para generar reportes PDF a partir de información ya obtenida con otras tools. No hay reglas fijas por dominio (tareas, cuotas, pagos, etc.): Isi razona cuándo conviene un PDF.
 
-### 5.1 Qué es y qué no es
+### 6.1 Qué es y qué no es
 
 - El PDF es un **reporte de datos/resultados**, no una transcripción de la conversación.
 - Prohibido incluir diálogo, «usuario dijo», «Isi respondió» o el historial hablado.
-- Solo datos confirmados por tools (`list_tasks`, `query_prestamo`, etc.). No inventar filas ni cifras.
+- Solo datos confirmados por tools (`list_tasks`, `query_prestamo`, `query_banco`, etc.). No inventar filas ni cifras.
 
-### 5.2 Cuándo usarla (autonomía del modelo)
+### 6.2 Cuándo usarla (autonomía del modelo)
 
 Isi decide cuándo **ofrecer** o **generar** un PDF, por ejemplo:
 
@@ -324,18 +360,18 @@ Isi decide cuándo **ofrecer** o **generar** un PDF, por ejemplo:
 
 No hay lista hardcodeada del tipo «si pregunta por X → ofrecer PDF».
 
-### 5.3 Flujo
+### 6.3 Flujo
 
-1. Obtener datos con `list_tasks` / `query_prestamo`. La app **cachea** esos resultados en la sesión.
+1. Obtener datos con `list_tasks` / `query_prestamo` / `query_banco`. La app **cachea** esos resultados en la sesión.
 2. Llamar `generate_report_pdf` con `title` (opcional: `subtitle`, `fileName`, `source`).
 3. La app arma el PDF desde el caché (Isi **no** reenvía las filas en el JSON de la tool).
 4. Confirmar breve por voz; el archivo aparece en el chat.
 
-`source`: `last` (default), `tasks`, `prestamo`, `all` (consolidado de la sesión).
+`source`: `last` (default), `tasks`, `prestamo`, `banco`, `all` (consolidado de la sesión).
 
 No pasar un objeto `report` enorme en la tool: en Realtime el JSON se rompe y falla (sobre todo en producción).
 
-### 5.4 Entrega
+### 6.4 Entrega
 
 - Backend: `POST /api/reports/pdf` → PDF en `uploads/reports/`.
 - Cliente: arma el reporte desde el caché de sesión + tarjeta en el chat.
@@ -343,7 +379,7 @@ No pasar un objeto `report` enorme en la tool: en Realtime el JSON se rompe y fa
 
 ---
 
-## 6. Herramientas disponibles (resumen)
+## 7. Herramientas disponibles (resumen)
 
 | Tool | Sistema | Descripción breve |
 | --- | --- | --- |
@@ -352,6 +388,8 @@ No pasar un objeto `report` enorme en la tool: en Realtime el JSON se rompe y fa
 | `update_task` | Agenda | Modificar tarea existente |
 | `delete_task` | Agenda | Eliminar tarea |
 | `query_prestamo` | Atlas | Consultar finanzas / préstamos |
+| `query_banco` | Banco | Consultar caja chica / ingresos / egresos de la app |
+| `create_banco_movimiento` | Banco | Registrar ingreso o egreso |
 | `generate_report_pdf` | Reportes | Generar PDF a partir de un report estructurado |
 | `end_call` | Llamada | Colgar |
 
@@ -359,13 +397,13 @@ No pasar un objeto `report` enorme en la tool: en Realtime el JSON se rompe y fa
 
 ---
 
-## 7. Configuración de audio (sesión)
+## 8. Configuración de audio (sesión)
 
 No son reglas de comportamiento, pero afectan la experiencia:
 
 | Parámetro | Valor |
 | --- | --- |
-| Transcripción entrada | `whisper-1`, idioma `es` |
+| Transcripción entrada | `whisper-1` (sin idioma fijo; detecta el del usuario) |
 | VAD | `semantic_vad`, `eagerness: low` |
 | Interrupción | `interrupt_response: true` |
 | Ruido | `noise_reduction: far_field` |
@@ -373,7 +411,7 @@ No son reglas de comportamiento, pero afectan la experiencia:
 
 ---
 
-## 8. Mantenimiento de este documento
+## 9. Mantenimiento de este documento
 
 Al cambiar reglas del asistente, actualizar:
 

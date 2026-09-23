@@ -1,14 +1,17 @@
+import type { RealtimeChannel } from "@/lib/realtimeChannel"
 import { VOICE_REPLY_LANGUAGE_INSTRUCTION } from "../runtime/reply-language"
 import type { ToolRunResult } from "./types.js"
 
-export const sendEvent = (channel: RTCDataChannel, payload: unknown) => {
+export type { RealtimeChannel }
+
+export const sendEvent = (channel: RealtimeChannel, payload: unknown) => {
   if (channel.readyState !== "open") {
     return
   }
   channel.send(JSON.stringify(payload))
 }
 
-export const sendToolResult = (channel: RTCDataChannel, callId: string, output: unknown) => {
+export const sendToolResult = (channel: RealtimeChannel, callId: string, output: unknown) => {
   sendEvent(channel, {
     type: "conversation.item.create",
     item: {
@@ -26,7 +29,7 @@ export const sendToolResult = (channel: RTCDataChannel, callId: string, output: 
 }
 
 export const finishTool = (
-  channel: RTCDataChannel,
+  channel: RealtimeChannel,
   callId: string,
   output: Record<string, unknown>,
   context?: { resource?: string },

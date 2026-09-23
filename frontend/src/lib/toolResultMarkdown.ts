@@ -4,7 +4,7 @@
  *
  * - list_tasks con ≥1 tarea → tabla/lista
  * - query_prestamo de recursos de lista (cuotas, pagos, …) con ≥1 fila → tabla
- * - caja-chica, liquidez, resumen, etc. → null (respuesta de Isi)
+ * - caja-chica, resumen, etc. → null (respuesta de Isi)
  * - sin filas o sin columnas conocidas → null
  */
 
@@ -112,7 +112,6 @@ const PRESTAMO_LIST_RESOURCES: Record<string, { title: string; keys: string[] }>
 const PRESTAMO_SUMMARY_RESOURCES = new Set([
   "caja-chica",
   "caja-chica-detalle",
-  "liquidez",
   "resumen",
 ])
 

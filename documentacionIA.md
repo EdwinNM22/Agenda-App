@@ -52,7 +52,7 @@ En `backend/src/config.ts` se leen, pero **no son obligatorias al arrancar**. Si
 
 El modelo por defecto es `gpt-realtime-2.1-mini` (API general). Se puede cambiar con `OPENAI_REALTIME_MODEL`.
 
-El asistente siempre responde en **español**, aunque el usuario hable en inglés. Eso va en las instrucciones de `backend/src/routes/realtime.ts`.
+El asistente responde en el **idioma en que le hablen** (español, inglés u otro). Las instrucciones viven en `backend/src/assistant/` (ensambladas por `buildSession.ts` y usadas desde `backend/src/routes/realtime.ts`). La transcripción no fija idioma, para que Whisper detecte el del usuario.
 
 ### 2. Endpoint protegido de sesión
 
@@ -208,7 +208,7 @@ Imports del paquete: `loadRnnoise`, `loadSpeex`, `RnnoiseWorkletNode`, `SpeexWor
 | `backend/.env` / `.env.example` | `OPENAI_API_KEY`, `OPENAI_REALTIME_MODEL` |
 | `backend/src/config.ts` | Lee esas variables |
 | `backend/src/voices.ts` | Voces permitidas |
-| `backend/src/routes/realtime.ts` | Crea la llamada, instrucciones (español), tools, VAD, `far_field` |
+| `backend/src/routes/realtime.ts` | Crea la llamada; instrucciones y tools salen de `backend/src/assistant/`, VAD, `far_field` |
 | `backend/src/app.ts` | Registra la ruta |
 | `frontend/src/hooks/useRealtimeVoice.ts` | WebRTC + pipeline de voz + llamada al API |
 | `frontend/src/audio/voicePipeline.ts` | AEC + RNNoise/Speex |
@@ -272,7 +272,8 @@ El único texto generado fuera de las tools es el **saludo inicial** al conectar
 | `cuotas-vencidas` | Cuotas en mora **con nombre de cliente** (`usuario` / `clienteNombre`) |
 | `clientes` | Búsqueda por nombre, DUI, teléfono |
 | `pagos` | Cuotas pagadas y abonos del periodo **con cliente** (desglose de cobros) |
-| `liquidez` | Saldo actual del sistema + KPIs de cartera (no histórico de un día) |
+
+Atlas no expone «liquidez» a Isi: la caja es `caja-chica` (saldo inicial, cuánto hay, ingresos/egresos del período; desembolsos en egresos).
 
 Parámetros opcionales en `params`: `fecha` (un día), `fechaInicio`, `fechaFin`, `year`, `q`, `id`, `limit`, `estado`.
 
@@ -322,7 +323,7 @@ Isi puede llamar `query_prestamo` varias veces en una conversación (p. ej. comp
 - «¿Cómo va el mes?» (ingresos vs egresos)
 - «¿Por qué tenemos esa cantidad en caja?» (movimientos con motivo)
 - «¿Cuánto tenemos en mora?»
-- «¿Podemos desembolsar 50 mil?» (liquidez + razonamiento)
+- «¿Podemos desembolsar 50 mil?» (`caja-chica` + razonamiento)
 - «Busca a Juan y dime qué debe»
 
 ## Cómo probarlo

@@ -287,6 +287,38 @@ export const filterTasksByDay = (tasks: Task[], day: Date) =>
     })
     .sort(compareByDue)
 
+export const indexTasksByDay = (tasks: Task[]): Map<string, Task[]> => {
+  const map = new Map<string, Task[]>()
+  for (const task of tasks) {
+    const due = dueAtToDate(task.dueAt)
+    if (!due) {
+      continue
+    }
+    const key = localDateKey(due)
+    const bucket = map.get(key)
+    if (bucket) {
+      bucket.push(task)
+    } else {
+      map.set(key, [task])
+    }
+  }
+  for (const bucket of map.values()) {
+    bucket.sort(compareByDue)
+  }
+  return map
+}
+
+export const formatTaskTime = (dueAt: string | null): string => {
+  const due = dueAtToDate(dueAt)
+  if (!due) {
+    return ""
+  }
+  return new Intl.DateTimeFormat("es", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(due)
+}
+
 const endOfWeekSunday = (now: Date) => {
   const weekday = now.getDay()
   const daysUntilSunday = weekday === 0 ? 0 : 7 - weekday

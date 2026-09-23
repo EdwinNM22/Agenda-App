@@ -1,5 +1,9 @@
 import { registerSW } from "virtual:pwa-register"
 
+declare const __EC_DEV_PWA__: boolean
+
+const registerServiceWorker = import.meta.env.PROD || __EC_DEV_PWA__
+
 type NavigatorStandalone = Navigator & { standalone?: boolean }
 
 export const isStandalone = (): boolean => {
@@ -141,6 +145,10 @@ export const bootPwa = () => {
   keepSameOriginBlankLinksInPwa()
   bindVisualViewport()
   window.matchMedia("(display-mode: standalone)").addEventListener("change", markDisplayMode)
+
+  if (!registerServiceWorker) {
+    return
+  }
 
   applyUpdate = registerSW({
     immediate: true,

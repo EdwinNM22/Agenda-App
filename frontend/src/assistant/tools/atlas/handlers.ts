@@ -20,7 +20,6 @@ const PRESTAMO_RESOURCE_SLUGS: Record<string, string> = {
   creditos: "creditos",
   clientes: "clientes",
   pagos: "pagos",
-  liquidez: "liquidez",
 }
 
 const toQueryString = (params: Record<string, unknown> | undefined): string => {
@@ -186,7 +185,7 @@ const queryPrestamoApi = async (slug: string, params: Record<string, unknown> | 
 }
 
 export const runQueryPrestamo = async (
-  channel: RTCDataChannel,
+  channel: import("@/lib/realtimeChannel").RealtimeChannel,
   callId: string,
   raw: string,
 ): Promise<ToolRunResult> => {

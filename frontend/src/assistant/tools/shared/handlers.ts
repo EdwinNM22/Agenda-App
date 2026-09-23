@@ -5,7 +5,7 @@ import { finishTool, sendToolResult, tryParseToolArgs } from "../runtime"
 import type { RealtimeToolHandlers, ToolRunResult } from "../types"
 
 export const runGenerateReportPdf = async (
-  channel: RTCDataChannel,
+  channel: import("@/lib/realtimeChannel").RealtimeChannel,
   callId: string,
   rawArgs: string,
   handlers?: RealtimeToolHandlers,
@@ -97,7 +97,7 @@ export const runGenerateReportPdf = async (
 }
 
 export const runEndCall = (
-  channel: RTCDataChannel,
+  channel: import("@/lib/realtimeChannel").RealtimeChannel,
   callId: string,
   handlers?: RealtimeToolHandlers,
 ) => {

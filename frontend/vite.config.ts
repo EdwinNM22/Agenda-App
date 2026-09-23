@@ -42,6 +42,7 @@ export default defineConfig(({ mode }) => {
     "/health": { target: apiTarget, changeOrigin: true },
     "/auth": { target: apiTarget, changeOrigin: true },
     "/realtime": { target: apiTarget, changeOrigin: true },
+    "/assistant": { target: apiTarget, changeOrigin: true },
     "/tasks": { target: apiTarget, changeOrigin: true },
     "/banco": { target: apiTarget, changeOrigin: true },
     "/uploads": { target: apiTarget, changeOrigin: true },
@@ -50,7 +51,30 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    define: {
+      __EC_DEV_PWA__: JSON.stringify(pwaDevEnabled),
+    },
     plugins: [
+      {
+        name: "ec-dev-drop-sw",
+        apply: "serve",
+        transformIndexHtml: {
+          order: "pre",
+          handler() {
+            if (pwaDevEnabled) {
+              return
+            }
+            return [
+              {
+                tag: "script",
+                injectTo: "head-prepend",
+                children:
+                  'if("serviceWorker"in navigator){navigator.serviceWorker.getRegistrations().then((r)=>Promise.all(r.map((x)=>x.unregister())))}',
+              },
+            ]
+          },
+        },
+      },
       react(),
       tailwindcss(),
       VitePWA({

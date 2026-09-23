@@ -1,39 +1,39 @@
 import { PhoneOff } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { useLocation, useNavigate } from "react-router-dom"
 import { AssistantOrb } from "@/components/AssistantOrb"
 import { ActivityPill, activityLabel } from "@/components/BusyState"
 import { Button } from "@/components/ui/button"
+import { useAssistantSheet } from "@/lib/assistantSheet"
 import { useVoiceAssistant } from "@/lib/voice-assistant"
 
-/** Justo encima del tab bar (misma posición relativa que antes del move). */
-const hangUpBottom = "calc(var(--agenda-tabbar-offset) + 0.5rem)"
-const orbBottom = "calc(var(--agenda-tabbar-offset) + 3.5rem)"
+/** Orb a la derecha; colgar a la izquierda para no solaparse con la X del sheet ni con el orb. */
+const floatBottom = "calc(var(--agenda-tabbar-offset) + 0.75rem)"
 
-/** Orb + activity fuera de Home, y colgar flotante a la derecha. */
+/** Orb + actividad cuando hay llamada y el chat sheet está cerrado. */
 export const FloatingAssistant = () => {
-  const { pathname } = useLocation()
-  const navigate = useNavigate()
+  const { open: sheetOpen, openSheet } = useAssistantSheet()
   const { status, live, hangUp, activity } = useVoiceAssistant()
   const active = live || status === "connecting"
-  const onHome = pathname === "/"
   const statusCopy = activityLabel(activity)
+
+  if (sheetOpen) {
+    return null
+  }
 
   return (
     <>
       <AnimatePresence>
-        {active && !onHome ? (
+        {active ? (
           <motion.button
             key="assistant-orb"
             type="button"
-            layoutId="assistant-orb"
-            className="pointer-events-auto fixed right-4 z-40"
-            style={{ bottom: orbBottom }}
+            className="pointer-events-auto fixed right-4 z-40 overflow-hidden rounded-full"
+            style={{ bottom: floatBottom }}
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.86 }}
             transition={{ type: "spring", stiffness: 280, damping: 26 }}
-            onClick={() => navigate("/")}
+            onClick={() => openSheet()}
             aria-label="Volver al asistente"
           >
             <AssistantOrb size={96} />
@@ -42,11 +42,11 @@ export const FloatingAssistant = () => {
       </AnimatePresence>
 
       <AnimatePresence>
-        {active && !onHome && statusCopy ? (
+        {active && statusCopy ? (
           <motion.div
             key="assistant-activity"
-            className="pointer-events-none fixed right-[7.5rem] z-40"
-            style={{ bottom: `calc(${orbBottom} + 1.75rem)` }}
+            className="pointer-events-none fixed right-[7.25rem] z-40 max-w-[min(12rem,calc(100vw-8.5rem))]"
+            style={{ bottom: `calc(${floatBottom} + 2rem)` }}
             initial={{ opacity: 0, x: 10, scale: 0.96 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 8, scale: 0.96 }}
@@ -61,8 +61,8 @@ export const FloatingAssistant = () => {
         {active ? (
           <motion.div
             key="hang-up"
-            className="pointer-events-auto fixed right-4 z-40"
-            style={{ bottom: hangUpBottom }}
+            className="pointer-events-auto fixed left-4 z-40"
+            style={{ bottom: floatBottom }}
             initial={{ opacity: 0, scale: 0.8, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.86, y: 10 }}

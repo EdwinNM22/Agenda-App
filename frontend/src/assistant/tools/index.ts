@@ -9,6 +9,7 @@ import {
 import { runQueryPrestamo } from "./atlas/handlers"
 import { runCreateBancoMovimiento, runQueryBanco } from "./banco/handlers"
 import { runEndCall, runGenerateReportPdf } from "./shared/handlers"
+import type { RealtimeChannel } from "@/lib/realtimeChannel"
 import type { RealtimeEvent, RealtimeToolHandlers, ToolRunResult } from "./types"
 
 const publishStructuredChat = (
@@ -29,7 +30,7 @@ const publishStructuredChat = (
 }
 
 export const handleRealtimeToolEvent = async (
-  channel: RTCDataChannel,
+  channel: RealtimeChannel,
   event: RealtimeEvent,
   seenCallIds: Set<string>,
   handlers?: RealtimeToolHandlers,

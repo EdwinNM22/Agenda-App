@@ -7,6 +7,7 @@ import websocket from "@fastify/websocket"
 import { config } from "./config.js"
 import { registerAuthRoutes } from "./routes/auth.js"
 import { registerHealthRoutes } from "./routes/health.js"
+import { registerAssistantRoutes } from "./routes/assistant.js"
 import { registerRealtimeRoutes } from "./routes/realtime.js"
 import { registerTaskSocketRoutes } from "./routes/taskSocket.js"
 import { registerPushRoutes } from "./routes/push.js"
@@ -152,6 +153,7 @@ export const buildApp = async () => {
 
   await registerHealthRoutes(app)
   await registerAuthRoutes(app)
+  await registerAssistantRoutes(app)
   await registerRealtimeRoutes(app)
   await registerTaskRoutes(app)
   await registerBancoRoutes(app)
