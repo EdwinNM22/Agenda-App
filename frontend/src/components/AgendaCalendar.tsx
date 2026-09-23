@@ -14,12 +14,13 @@ import {
   subMonths,
 } from "date-fns"
 import { es } from "date-fns/locale"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { TaskItem } from "@/components/TaskItem"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -147,6 +148,62 @@ const CalendarDayTaskChip = ({
   )
 }
 
+type DayPanelAnchor = {
+  day: Date
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+const PANEL_MAX_WIDTH_PX = 512
+
+const panelTargetWidthPx = () => {
+  if (typeof window === "undefined") {
+    return PANEL_MAX_WIDTH_PX
+  }
+  const safeLeft = Number.parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue("--k-safe-area-left"),
+  )
+  const safeRight = Number.parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue("--k-safe-area-right"),
+  )
+  const inset = Math.max(16, Number.isFinite(safeLeft) ? safeLeft : 0) +
+    Math.max(16, Number.isFinite(safeRight) ? safeRight : 0)
+  return Math.min(window.innerWidth - inset, PANEL_MAX_WIDTH_PX)
+}
+
+const dayPanelSpring = { type: "spring" as const, damping: 34, stiffness: 400, mass: 0.82 }
+
+const dayPanelCenter = (anchor: DayPanelAnchor) => ({
+  left: anchor.left + anchor.width / 2,
+  top: anchor.top + anchor.height / 2,
+})
+
+const dayPanelExpandMotion = (anchor: DayPanelAnchor) => {
+  const origin = dayPanelCenter(anchor)
+  return {
+    initial: {
+      left: origin.left,
+      top: origin.top,
+      width: anchor.width,
+      height: anchor.height,
+      x: "-50%",
+      y: "-50%",
+      borderRadius: 0,
+    },
+    animate: {
+      left: "50%",
+      top: "50%",
+      width: panelTargetWidthPx(),
+      height: "auto",
+      x: "-50%",
+      y: "-50%",
+      borderRadius: 16,
+    },
+  }
+}
+
 type AgendaCalendarProps = {
   tasks: Task[]
   taskDetailOpen?: boolean
@@ -159,7 +216,8 @@ export const AgendaCalendar = ({
   onOpenTask,
 }: AgendaCalendarProps) => {
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()))
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null)
+  const [dayPanel, setDayPanel] = useState<DayPanelAnchor | null>(null)
+  const selectedDay = dayPanel?.day ?? null
 
   const datedTasks = useMemo(
     () => tasks.filter((task) => task.dueAt),
@@ -192,14 +250,21 @@ export const AgendaCalendar = ({
 
   const goToday = () => {
     setVisibleMonth(startOfMonth(new Date()))
-    setSelectedDay(null)
+    setDayPanel(null)
   }
 
-  const onDayPress = (day: Date) => {
+  const openDayPanel = (day: Date, cell: HTMLElement) => {
     if (!isSameMonth(day, visibleMonth)) {
       setVisibleMonth(startOfMonth(day))
     }
-    setSelectedDay(day)
+    const rect = cell.getBoundingClientRect()
+    setDayPanel({
+      day,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+    })
   }
 
   return (
@@ -277,11 +342,12 @@ export const AgendaCalendar = ({
                   <button
                     key={key}
                     type="button"
-                    onClick={() => onDayPress(day)}
+                    onClick={(event) => openDayPanel(day, event.currentTarget)}
                     className={cn(
                       "relative flex h-[6rem] flex-col gap-0.5 overflow-hidden border-r p-0.5 text-left transition-colors last:border-r-0 sm:p-1",
                       outside && "bg-muted/20",
-                      selected && "z-[1] bg-primary/8 ring-2 ring-inset ring-primary/50",
+                      selected && dayPanel && "z-[1] ring-2 ring-inset ring-primary/40",
+                      selected && !dayPanel && "z-[1] bg-primary/8 ring-2 ring-inset ring-primary/50",
                       !selected && "hover:bg-muted/35 active:bg-muted/50",
                     )}
                     aria-label={
@@ -291,7 +357,12 @@ export const AgendaCalendar = ({
                     }
                     aria-pressed={selected}
                   >
-                    <span className="relative min-h-[1.375rem] pr-4 pl-0.5">
+                    <span
+                      className={cn(
+                        "relative min-h-[1.375rem] pr-4 pl-0.5",
+                        selected && dayPanel && "invisible",
+                      )}
+                    >
                       <span className="inline-flex max-w-full items-baseline gap-0.5 leading-none">
                         <span
                           className={cn(
@@ -328,7 +399,12 @@ export const AgendaCalendar = ({
                       ) : null}
                     </span>
 
-                    <span className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">
+                    <span
+                      className={cn(
+                        "flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden",
+                        selected && dayPanel && "invisible",
+                      )}
+                    >
                       {chips.map((task, index) => (
                         <CalendarDayTaskChip
                           key={task.id}
@@ -367,19 +443,19 @@ export const AgendaCalendar = ({
       </div>
 
       <Dialog
-        open={selectedDay !== null}
+        open={dayPanel !== null}
         modal={!taskDetailOpen}
         onOpenChange={(open) => {
           if (!open && !taskDetailOpen) {
-            setSelectedDay(null)
+            setDayPanel(null)
           }
         }}
       >
         <DialogContent
-          showCloseButton
+          showCloseButton={false}
           overlayClassName={cn("z-[52]", taskDetailOpen && "pointer-events-none bg-black/5 backdrop-blur-none")}
           className={cn(
-            "top-[50%] left-[50%] z-[53] flex w-[min(100%-max(1rem,var(--k-safe-area-left))-max(1rem,var(--k-safe-area-right)),32rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-hidden rounded-2xl p-0 max-sm:top-auto max-sm:bottom-[calc(var(--agenda-tabbar-offset)+0.75rem)] max-sm:max-h-[min(72dvh,calc(100dvh-var(--k-safe-area-top)-var(--agenda-tabbar-offset)-1.25rem))] max-sm:-translate-y-0 max-sm:rounded-t-3xl sm:max-h-[min(80dvh,calc(100dvh-var(--k-safe-area-top)-var(--k-safe-area-bottom)-2rem))]",
+            "fixed inset-0 top-0 left-0 z-[53] h-full max-h-none w-full max-w-none translate-x-0 translate-y-0 gap-0 overflow-visible border-0 bg-transparent p-0 shadow-none ring-0 duration-0 data-open:animate-none data-closed:animate-none",
             taskDetailOpen && "pointer-events-none opacity-95",
           )}
           onOpenAutoFocus={(event) => event.preventDefault()}
@@ -409,43 +485,69 @@ export const AgendaCalendar = ({
             }
           }}
         >
-          {selectedDay ? (
-            <>
-              <DialogHeader className="gap-1 border-b px-4 pt-[max(1rem,var(--k-safe-area-top))] pb-4 pr-14 text-left sm:pt-4">
-                <p className="text-xs font-semibold tracking-wide text-primary uppercase">
-                  Tareas del día
-                </p>
-                <DialogTitle className="text-lg capitalize">{formatLongDate(selectedDay)}</DialogTitle>
-                <DialogDescription>
-                  {selectedTasks.length === 0
-                    ? "Sin tareas este día con los filtros actuales."
-                    : `${selectedTasks.length} tarea${selectedTasks.length === 1 ? "" : "s"} · toca una para ver el detalle`}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-                {selectedTasks.length > 0 ? (
-                  <ul className="flex flex-col gap-2 pb-2">
-                    <AnimatePresence initial={false}>
-                      {selectedTasks.map((task, index) => (
-                        <motion.li
-                          key={task.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.04 }}
-                        >
-                          <TaskItem task={task} onOpen={onOpenTask} />
-                        </motion.li>
-                      ))}
-                    </AnimatePresence>
-                  </ul>
-                ) : (
-                  <p className="rounded-xl bg-muted/50 px-4 py-10 text-center text-sm text-muted-foreground">
-                    No hay tareas para este día.
+          {dayPanel && selectedDay ? (
+            <motion.div
+              key={localDateKey(selectedDay)}
+              {...dayPanelExpandMotion(dayPanel)}
+              transition={dayPanelSpring}
+              className="fixed z-[54] flex w-full max-w-lg max-h-[min(75dvh,calc(100dvh-var(--k-safe-area-top)-var(--k-safe-area-bottom)-2rem))] flex-col overflow-hidden border bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10"
+            >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1, duration: 0.2 }}
+                className="flex min-h-0 flex-col"
+              >
+                <DialogHeader className="gap-0.5 border-b px-3.5 pt-3.5 pb-3 pr-11 text-left">
+                  <p className="text-[10px] font-semibold tracking-wide text-primary uppercase">
+                    Tareas del día
                   </p>
-                )}
-              </div>
-            </>
+                  <DialogTitle id="agenda-day-dialog-title" className="text-base capitalize">
+                    {formatLongDate(selectedDay)}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs">
+                    {selectedTasks.length === 0
+                      ? "Sin tareas este día con los filtros actuales."
+                      : `${selectedTasks.length} tarea${selectedTasks.length === 1 ? "" : "s"} · toca una para ver el detalle`}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="min-h-0 overflow-y-auto px-3.5 py-2.5">
+                  {selectedTasks.length > 0 ? (
+                    <ul className="flex flex-col gap-1.5">
+                      <AnimatePresence initial={false}>
+                        {selectedTasks.map((task, index) => (
+                          <motion.li
+                            key={task.id}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.08 + index * 0.04 }}
+                          >
+                            <TaskItem task={task} onOpen={onOpenTask} />
+                          </motion.li>
+                        ))}
+                      </AnimatePresence>
+                    </ul>
+                  ) : (
+                    <p className="rounded-lg bg-muted/50 px-3 py-6 text-center text-sm text-muted-foreground">
+                      No hay tareas para este día.
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="absolute top-2.5 right-2.5 z-10 rounded-full"
+                >
+                  <X />
+                  <span className="sr-only">Cerrar</span>
+                </Button>
+              </DialogClose>
+            </motion.div>
           ) : null}
         </DialogContent>
       </Dialog>
