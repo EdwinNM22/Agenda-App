@@ -158,19 +158,36 @@ type DayPanelAnchor = {
 
 const PANEL_MAX_WIDTH_PX = 512
 
+const readSafeAreaPx = (name: "--k-safe-area-left" | "--k-safe-area-right" | "--k-safe-area-top" | "--k-safe-area-bottom") => {
+  if (typeof window === "undefined") {
+    return 0
+  }
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name)
+  const parsed = Number.parseFloat(raw)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 const panelTargetWidthPx = () => {
   if (typeof window === "undefined") {
     return PANEL_MAX_WIDTH_PX
   }
-  const safeLeft = Number.parseFloat(
-    getComputedStyle(document.documentElement).getPropertyValue("--k-safe-area-left"),
-  )
-  const safeRight = Number.parseFloat(
-    getComputedStyle(document.documentElement).getPropertyValue("--k-safe-area-right"),
-  )
-  const inset = Math.max(16, Number.isFinite(safeLeft) ? safeLeft : 0) +
-    Math.max(16, Number.isFinite(safeRight) ? safeRight : 0)
+  const inset =
+    Math.max(16, readSafeAreaPx("--k-safe-area-left")) +
+    Math.max(16, readSafeAreaPx("--k-safe-area-right"))
   return Math.min(window.innerWidth - inset, PANEL_MAX_WIDTH_PX)
+}
+
+/** Altura fija del panel (la que antes “flasheaba” al abrir por height: auto). */
+const panelTargetHeightPx = () => {
+  if (typeof window === "undefined") {
+    return 420
+  }
+  const verticalInset =
+    Math.max(16, readSafeAreaPx("--k-safe-area-top")) +
+    Math.max(16, readSafeAreaPx("--k-safe-area-bottom")) +
+    32
+  const cap = window.innerHeight - verticalInset
+  return Math.min(Math.round(window.innerHeight * 0.75), cap)
 }
 
 const dayPanelSpring = { type: "spring" as const, damping: 34, stiffness: 400, mass: 0.82 }
@@ -182,6 +199,8 @@ const dayPanelCenter = (anchor: DayPanelAnchor) => ({
 
 const dayPanelExpandMotion = (anchor: DayPanelAnchor) => {
   const origin = dayPanelCenter(anchor)
+  const targetWidth = panelTargetWidthPx()
+  const targetHeight = panelTargetHeightPx()
   return {
     initial: {
       left: origin.left,
@@ -195,8 +214,8 @@ const dayPanelExpandMotion = (anchor: DayPanelAnchor) => {
     animate: {
       left: "50%",
       top: "50%",
-      width: panelTargetWidthPx(),
-      height: "auto",
+      width: targetWidth,
+      height: targetHeight,
       x: "-50%",
       y: "-50%",
       borderRadius: 16,
@@ -490,15 +509,15 @@ export const AgendaCalendar = ({
               key={localDateKey(selectedDay)}
               {...dayPanelExpandMotion(dayPanel)}
               transition={dayPanelSpring}
-              className="fixed z-[54] flex w-full max-w-lg max-h-[min(75dvh,calc(100dvh-var(--k-safe-area-top)-var(--k-safe-area-bottom)-2rem))] flex-col overflow-hidden border bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10"
+              className="fixed z-[54] flex flex-col overflow-hidden border bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10"
             >
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.1, duration: 0.2 }}
-                className="flex min-h-0 flex-col"
+                className="flex h-full min-h-0 flex-col"
               >
-                <DialogHeader className="gap-0.5 border-b px-3.5 pt-3.5 pb-3 pr-11 text-left">
+                <DialogHeader className="shrink-0 gap-0.5 border-b px-3.5 pt-3.5 pb-3 pr-11 text-left">
                   <p className="text-[10px] font-semibold tracking-wide text-primary uppercase">
                     Tareas del día
                   </p>
@@ -512,7 +531,7 @@ export const AgendaCalendar = ({
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="min-h-0 overflow-y-auto px-3.5 py-2.5">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 py-2.5">
                   {selectedTasks.length > 0 ? (
                     <ul className="flex flex-col gap-1.5">
                       <AnimatePresence initial={false}>
