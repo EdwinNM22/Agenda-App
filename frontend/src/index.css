@@ -192,19 +192,38 @@ html.pwa-standalone #root {
   max-height: var(--agenda-home-height);
 }
 
-/* Chat Isi: panel casi pantalla completa (no sheet “flotante” por max-height). */
+/* Chat Isi: altura fija hasta el borde inferior (h-auto dejaba franja del wallpaper). */
 .assistant-chat-sheet[data-side="bottom"] {
   top: var(--k-safe-area-top) !important;
   right: 0 !important;
   left: 0 !important;
-  bottom: var(--keyboard-inset, 0px) !important;
+  bottom: 0 !important;
   width: 100% !important;
   max-width: none !important;
   margin-inline: 0 !important;
-  height: auto !important;
-  max-height: none !important;
+  height: calc(100dvh - var(--k-safe-area-top)) !important;
+  min-height: calc(100dvh - var(--k-safe-area-top)) !important;
+  max-height: calc(100dvh - var(--k-safe-area-top)) !important;
   border-top-left-radius: 1.75rem;
   border-top-right-radius: 1.75rem;
+}
+
+html.keyboard-open .assistant-chat-sheet[data-side="bottom"] {
+  bottom: var(--keyboard-inset, 0px) !important;
+  height: calc(100dvh - var(--k-safe-area-top) - var(--keyboard-inset, 0px)) !important;
+  min-height: calc(100dvh - var(--k-safe-area-top) - var(--keyboard-inset, 0px)) !important;
+  max-height: calc(100dvh - var(--k-safe-area-top) - var(--keyboard-inset, 0px)) !important;
+}
+
+html.wallpaper .assistant-chat-sheet[data-slot="sheet-content"],
+html.wallpaper .assistant-chat-sheet .assistant-chat-composer-bar {
+  background-color: rgb(18 18 20 / 0.94) !important;
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+}
+
+html.assistant-chat-open body {
+  overflow: hidden;
 }
 
 html.assistant-chat-open .agenda-tabbar-wrap {

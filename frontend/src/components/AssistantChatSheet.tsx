@@ -60,7 +60,7 @@ export const AssistantChatSheet = () => {
       <SheetContent
         side="bottom"
         showCloseButton
-        className="assistant-chat-sheet z-[70] flex h-full min-h-0 w-full flex-col gap-0 overflow-hidden border-t p-0 pb-[max(var(--k-safe-area-bottom),0.75rem)] sm:mx-auto sm:max-w-lg"
+        className="assistant-chat-sheet z-[70] flex h-full min-h-0 w-full flex-col gap-0 overflow-hidden border-t p-0 sm:mx-auto sm:max-w-lg"
       >
         <div className="flex shrink-0 flex-col items-center pt-2 pb-1">
           <span className="h-1 w-10 rounded-full bg-muted-foreground/25" aria-hidden />
@@ -78,7 +78,7 @@ export const AssistantChatSheet = () => {
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <AssistantChat className="min-h-0 flex-1" />
-          <div className="shrink-0 border-t bg-popover/95 px-5 pt-2 pb-1 backdrop-blur-sm">
+          <div className="assistant-chat-composer-bar shrink-0 border-t bg-popover px-5 pt-2 pb-[max(var(--k-safe-area-bottom),0.75rem)] backdrop-blur-sm">
             <AssistantComposer variant="bar" />
           </div>
         </div>

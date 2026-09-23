@@ -67,11 +67,12 @@ const bindVisualViewport = () => {
   const root = document.documentElement
   const sync = () => {
     const viewport = window.visualViewport
-    const keyboard = viewport
+    const rawKeyboard = viewport
       ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
       : 0
+    const keyboard = rawKeyboard > 80 ? rawKeyboard : 0
     root.style.setProperty("--keyboard-inset", `${keyboard}px`)
-    root.classList.toggle("keyboard-open", keyboard > 80)
+    root.classList.toggle("keyboard-open", keyboard > 0)
   }
   window.visualViewport?.addEventListener("resize", sync)
   window.visualViewport?.addEventListener("scroll", sync)

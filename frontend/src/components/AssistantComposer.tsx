@@ -2,7 +2,6 @@ import { useMemo, useState, type FormEvent, type KeyboardEvent } from "react"
 import { ArrowUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { VoiceMicButton } from "@/components/VoiceMicButton"
-import { ComposerSuggestionChips } from "@/components/ComposerSuggestionChips"
 import { HomeConversationPreview } from "@/components/HomeConversationPreview"
 import { useAssistantSheet } from "@/lib/assistantSheet"
 import { useVoiceAssistant } from "@/lib/voice-assistant"
@@ -56,14 +55,6 @@ export const AssistantComposer = ({ variant, onEngage, className }: AssistantCom
     }
   }
 
-  const pickSuggestion = (prompt: string) => {
-    void sendText(prompt)
-    if (hero) {
-      openSheet()
-    }
-    onEngage?.()
-  }
-
   const handleMic = () => {
     if (voiceSession) {
       hangUp()
@@ -78,6 +69,33 @@ export const AssistantComposer = ({ variant, onEngage, className }: AssistantCom
     }
     onEngage?.()
   }
+
+  const showSendAction = canSend && !voiceSession
+  const micSize = hero && !hasConversation ? "md" : "lg"
+
+  const primaryAction = showSendAction ? (
+    <Button
+      type="submit"
+      variant="default"
+      size="icon"
+      className={cn(
+        "rounded-full shadow-md",
+        micSize === "lg" ? "size-11" : "size-9",
+      )}
+      aria-label="Enviar"
+    >
+      <ArrowUp className={micSize === "lg" ? "size-5" : "size-4"} />
+    </Button>
+  ) : (
+    <VoiceMicButton
+      voiceSession={voiceSession}
+      connecting={connecting}
+      hearingUser={hearingUser}
+      live={live}
+      onClick={handleMic}
+      size={micSize}
+    />
+  )
 
   return (
     <form
@@ -117,28 +135,8 @@ export const AssistantComposer = ({ variant, onEngage, className }: AssistantCom
                 placeholder={heroPlaceholder}
                 className="min-h-9 max-h-20 flex-1 resize-none bg-transparent py-1 text-base leading-snug text-foreground outline-none placeholder:text-muted-foreground field-sizing-content"
               />
-              <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
-                <Button
-                  type="submit"
-                  variant={canSend ? "default" : "ghost"}
-                  size="icon"
-                  disabled={!canSend}
-                  className="size-8 rounded-full opacity-90"
-                  aria-label="Enviar"
-                >
-                  <ArrowUp className="size-4" />
-                </Button>
-                <VoiceMicButton
-                  voiceSession={voiceSession}
-                  connecting={connecting}
-                  hearingUser={hearingUser}
-                  live={live}
-                  onClick={handleMic}
-                  size="md"
-                />
-              </div>
+              <div className="flex shrink-0 items-center pt-0.5">{primaryAction}</div>
             </div>
-            <ComposerSuggestionChips onPick={pickSuggestion} />
           </>
         ) : (
           <>
@@ -156,51 +154,13 @@ export const AssistantComposer = ({ variant, onEngage, className }: AssistantCom
               )}
             />
             {hero ? (
-              <div className="absolute right-3 bottom-2 flex items-center gap-2">
-                <Button
-                  type="submit"
-                  variant={canSend ? "default" : "ghost"}
-                  size="icon"
-                  disabled={!canSend}
-                  className="size-9 rounded-full"
-                  aria-label="Enviar"
-                >
-                  <ArrowUp className="size-4" />
-                </Button>
-                <VoiceMicButton
-                  voiceSession={voiceSession}
-                  connecting={connecting}
-                  hearingUser={hearingUser}
-                  live={live}
-                  onClick={handleMic}
-                  size="lg"
-                />
-              </div>
+              <div className="absolute right-3 bottom-2 flex items-center">{primaryAction}</div>
             ) : null}
           </>
         )}
       </div>
       {hero ? null : (
-        <div className="flex shrink-0 items-center gap-2 pb-0.5">
-          <Button
-            type="submit"
-            variant={canSend ? "default" : "ghost"}
-            size="icon"
-            disabled={!canSend}
-            className="size-10 rounded-full shadow-sm"
-            aria-label="Enviar"
-          >
-            <ArrowUp className="size-4" />
-          </Button>
-          <VoiceMicButton
-            voiceSession={voiceSession}
-            connecting={connecting}
-            hearingUser={hearingUser}
-            live={live}
-            onClick={handleMic}
-            size="lg"
-          />
-        </div>
+        <div className="flex shrink-0 items-center pb-0.5">{primaryAction}</div>
       )}
     </form>
   )
