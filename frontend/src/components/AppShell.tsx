@@ -76,8 +76,7 @@ const ShellChrome = () => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { open: assistantSheetOpen } = useAssistantSheet()
-  const hidden =
-    useHideOnScroll(pathname) || (assistantSheetOpen && pathname === "/")
+  const hidden = useHideOnScroll(pathname) || assistantSheetOpen
 
   return (
     <App

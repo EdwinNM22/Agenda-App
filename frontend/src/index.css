@@ -192,11 +192,24 @@ html.pwa-standalone #root {
   max-height: var(--agenda-home-height);
 }
 
-/* Chat sheet: altura acotada; el sheet base usa bottom + keyboard-inset. */
+/* Chat Isi: panel casi pantalla completa (no sheet “flotante” por max-height). */
 .assistant-chat-sheet[data-side="bottom"] {
-  top: auto !important;
+  top: var(--k-safe-area-top) !important;
+  right: 0 !important;
+  left: 0 !important;
+  bottom: var(--keyboard-inset, 0px) !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin-inline: 0 !important;
   height: auto !important;
-  max-height: min(92dvh, calc(100dvh - var(--keyboard-inset, 0px) - var(--k-safe-area-top))) !important;
+  max-height: none !important;
+  border-top-left-radius: 1.75rem;
+  border-top-right-radius: 1.75rem;
+}
+
+html.assistant-chat-open .agenda-tabbar-wrap {
+  translate: 0 110%;
+  pointer-events: none;
 }
 
 html.pwa-ios {
