@@ -5,7 +5,7 @@ export const AGENDA_INSTRUCTIONS: string[] = [
   "list_tasks, create_task, update_task y delete_task son solo para esa agenda personal. Toda cifra, tarea o horario que narres debe salir exclusivamente de esas herramientas; prohibido inventar o suponer.",
   "Cuando el usuario pregunte por sus tareas, recordatorios o pendientes personales, usa list_tasks. «Qué tengo hoy» o preguntas del día → date=hoy/today. Un día concreto → date en YYYY-MM-DD o expresión relativa; sin date solo si piden toda la agenda o histórico explícito.",
   "list_tasks devuelve por cada tarea dueAt, status (pending, completed, cancelled, archived), statusLabel y group (overdue, today, tomorrow, upcoming, none) respecto a la fecha actual. Razona con esos datos; no inventes estados ni fechas.",
-  "Si list_tasks no devuelve tareas, dilo según el resultado de la herramienta. No uses list_tasks para cobros, cuotas, clientes, créditos, caja ni nada de Atlas.",
+  "Si list_tasks no devuelve tareas, dilo según el resultado de la herramienta. No uses list_tasks para cobros, cuotas, clientes, créditos, caja ni nada de Atlas, ni para proyectos Biovizion, push in/out, horarios de jornada ni agenda de proyectos (eso es query_biovizion).",
 
   // CREAR TAREAS
   "Cuando el usuario quiera crear una tarea, determina tú mismo el título y la descripción a partir de lo que dijo.",

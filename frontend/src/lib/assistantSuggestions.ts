@@ -1,4 +1,4 @@
-import { CalendarDays, Landmark, Plus, Wallet, type LucideIcon } from "lucide-react"
+import { CalendarDays, FolderKanban, Landmark, Plus, Wallet, type LucideIcon } from "lucide-react"
 
 export type AssistantSuggestion = {
   id: string
@@ -29,6 +29,12 @@ const CORE_SUGGESTIONS: AssistantSuggestion[] = [
     label: "Qué hay en Atlas",
     prompt: "¿Qué hay en Atlas?",
     Icon: Landmark,
+  },
+  {
+    id: "biovizion",
+    label: "Qué hay en Biovizion",
+    prompt: "¿Qué hay en Biovizion?",
+    Icon: FolderKanban,
   },
   {
     id: "bank",

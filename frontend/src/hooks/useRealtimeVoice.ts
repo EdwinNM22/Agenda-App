@@ -25,6 +25,7 @@ export type ToolActivity =
   | "update_task"
   | "delete_task"
   | "query_prestamo"
+  | "query_biovizion"
   | "query_banco"
   | "create_banco_movimiento"
   | "generate_report_pdf"
@@ -37,6 +38,7 @@ const TOOL_ACTIVITY = new Set([
   "update_task",
   "delete_task",
   "query_prestamo",
+  "query_biovizion",
   "query_banco",
   "create_banco_movimiento",
   "generate_report_pdf",
@@ -48,6 +50,9 @@ const pickActivity = (names: string[]): ToolActivity => {
   }
   if (names.includes("query_prestamo")) {
     return "query_prestamo"
+  }
+  if (names.includes("query_biovizion")) {
+    return "query_biovizion"
   }
   if (names.includes("query_banco") || names.includes("create_banco_movimiento")) {
     return "query_banco"
@@ -293,6 +298,7 @@ export const useRealtimeVoice = () => {
     () => ({
       onHangUp: hangUp,
       onToolStart: (name: string) => {
+        chatController.current.discardLastAssistantPreface?.()
         toolsInFlightRef.current += 1
         if (TOOL_ACTIVITY.has(name)) {
           toolsRef.current = [...toolsRef.current, name]
@@ -824,6 +830,7 @@ export const useRealtimeVoice = () => {
             {
               onHangUp: hangUp,
               onToolStart: (name) => {
+                chatController.current.discardLastAssistantPreface?.()
                 toolsInFlightRef.current += 1
                 if (TOOL_ACTIVITY.has(name)) {
                   toolsRef.current = [...toolsRef.current, name]

@@ -4,11 +4,12 @@ import { bancoSystem } from "./banco.js"
 import { biovizionAlbumsSystem } from "./biovizion-albums.js"
 import type { AssistantSystemModule } from "../types.js"
 
-/** Sistemas activos del asistente. BiovizionAlbums está preparado pero aún sin funcionalidad. */
+/** Sistemas activos del asistente. */
 export const ACTIVE_ASSISTANT_SYSTEMS: AssistantSystemModule[] = [
   agendaSystem,
   atlasSystem,
   bancoSystem,
+  biovizionAlbumsSystem,
 ]
 
 /** Todos los sistemas registrados, incluidos los pendientes de implementación. */

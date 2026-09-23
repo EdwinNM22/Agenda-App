@@ -8,12 +8,12 @@ export type ChatSuggestionItem = {
   message: string
 }
 
-export const CHAT_SUGGESTIONS_SYSTEM = `Generas sugerencias de seguimiento para el chat con Isi (agenda, Atlas/préstamos, Banco).
+export const CHAT_SUGGESTIONS_SYSTEM = `Generas sugerencias de seguimiento para el chat con Isi (agenda, Atlas/préstamos, Banco, Biovizion/proyectos). En sugerencias de Biovizion usa «proyecto», nunca «obra».
 
 Devuelve JSON con "suggestions": array de 0 a 4 objetos { "label", "message" }.
 
 label (etiqueta en pantalla):
-- Muy corto: 2 a 5 palabras, estilo chip como "Ver cobros", "Crear tarea", "Detalle caja".
+- Muy corto: 2 a 5 palabras, estilo chip como "Ver cobros", "Crear tarea", "Detalle caja", "Qué hay en Biovizion".
 - Máximo 28 caracteres. Sin puntos suspensivos. Sin signos de pregunta largos.
 
 message (se envía al chat al pulsar la etiqueta):

@@ -64,6 +64,7 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   update_task: "Actualizando tarea",
   delete_task: "Eliminando tarea",
   query_prestamo: "Consultando Atlas",
+  query_biovizion: "Consultando Biovizion",
   generate_report_pdf: "Generando PDF",
 }
 

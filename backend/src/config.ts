@@ -45,4 +45,14 @@ export const config = {
     tenant: (process.env.PRESTAMO_TENANT ?? "atlas").trim().toLowerCase(),
     timeoutMs: Number(process.env.PRESTAMO_TIMEOUT_MS ?? 15_000),
   },
+  biovizion: {
+    apiUrl: (process.env.BIOVIZION_API_URL ?? "http://127.0.0.1:3001/biovac").trim().replace(/\/$/, ""),
+    hubApiKey: (
+      process.env.BIOVIZION_HUB_API_KEY ??
+      process.env.INTEGRATION_API_KEY ??
+      ""
+    ).trim(),
+    instanceHost: (process.env.BIOVIZION_INSTANCE_HOST ?? "").trim(),
+    timeoutMs: Number(process.env.BIOVIZION_TIMEOUT_MS ?? 15_000),
+  },
 } as const

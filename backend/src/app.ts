@@ -13,6 +13,7 @@ import { registerTaskSocketRoutes } from "./routes/taskSocket.js"
 import { registerPushRoutes } from "./routes/push.js"
 import { registerTaskRoutes } from "./routes/tasks.js"
 import { registerBancoRoutes } from "./routes/banco.js"
+import { registerBiovizionIntegrationRoutes } from "./routes/integrations/biovizion.js"
 import { registerPrestamoIntegrationRoutes } from "./routes/integrations/prestamo.js"
 import { registerReportRoutes } from "./routes/reports.js"
 import { avatarsDir, attachmentsDir, wallpapersDir, reportsDir, ensureUploadDirs } from "./uploads.js"
@@ -160,6 +161,7 @@ export const buildApp = async () => {
   await registerPushRoutes(app)
   await registerTaskSocketRoutes(app)
   await registerPrestamoIntegrationRoutes(app)
+  await registerBiovizionIntegrationRoutes(app)
   await registerReportRoutes(app)
 
   return app

@@ -1,5 +1,5 @@
 import type { RealtimeChannel } from "@/lib/realtimeChannel"
-import { VOICE_REPLY_LANGUAGE_INSTRUCTION } from "../runtime/reply-language"
+import { POST_TOOL_REPLY_INSTRUCTION } from "../runtime/reply-language"
 import type { ToolRunResult } from "./types.js"
 
 export type { RealtimeChannel }
@@ -23,7 +23,7 @@ export const sendToolResult = (channel: RealtimeChannel, callId: string, output:
   sendEvent(channel, {
     type: "response.create",
     response: {
-      instructions: VOICE_REPLY_LANGUAGE_INSTRUCTION,
+      instructions: POST_TOOL_REPLY_INSTRUCTION,
     },
   })
 }

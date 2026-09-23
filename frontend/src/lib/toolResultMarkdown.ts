@@ -164,6 +164,163 @@ const findPagosRows = (data: Record<string, unknown>): Array<Record<string, unkn
   return [...cuotas, ...abonos]
 }
 
+const BIOVIZION_LIST_RESOURCES: Record<string, { title: string; keys: string[] }> = {
+  proyectos: { title: "Proyectos", keys: ["projects", "highlights.projects"] },
+  reportes: { title: "Reportes", keys: ["reports", "highlights.reports"] },
+  citas: { title: "Citas", keys: ["appointments", "highlights.appointments"] },
+  dre: { title: "DRE", keys: ["entries", "highlights.dre"] },
+  asistencia: { title: "En proyecto (push in)", keys: ["activeSessions", "highlights.attendance"] },
+  personas: { title: "Trabajadores", keys: ["data"] },
+  horas: { title: "Horas", keys: ["byDay", "sessions", "data"] },
+  equipo: { title: "Equipo", keys: ["data"] },
+  "push-pendientes": { title: "Push pendientes", keys: ["pending"] },
+  inconsistencias: { title: "Inconsistencias", keys: ["inconsistencies"] },
+}
+
+const BIOVIZION_SUMMARY_RESOURCES = new Set(["resumen", "ubicaciones"])
+
+const BIOVIZION_COLUMNS: Array<{ key: string; label: string }> = [
+  { key: "title", label: "Proyecto" },
+  { key: "projectTitle", label: "Proyecto" },
+  { key: "name", label: "Nombre" },
+  { key: "userName", label: "Trabajador" },
+  { key: "workerName", label: "Trabajador" },
+  { key: "clientName", label: "Cliente" },
+  { key: "location", label: "Ubicación" },
+  { key: "status", label: "Estado" },
+  { key: "role", label: "Rol" },
+  { key: "date", label: "Día" },
+  { key: "totalHours", label: "Horas" },
+  { key: "hoursToday", label: "Horas hoy" },
+  { key: "pushIn", label: "Push in" },
+  { key: "lastPushIn", label: "Push in" },
+  { key: "lastPushOut", label: "Push out" },
+  { key: "startDateTime", label: "Inicio" },
+  { key: "endDateTime", label: "Fin" },
+  { key: "visitDate", label: "Visita" },
+  { key: "evaluationDate", label: "Evaluación" },
+  { key: "phone", label: "Teléfono" },
+  { key: "email", label: "Email" },
+  { key: "motive", label: "Motivo" },
+  { key: "interventionDate", label: "Fecha" },
+]
+
+const nestedRows = (data: Record<string, unknown>, dottedKey: string): Array<Record<string, unknown>> => {
+  const [head, ...rest] = dottedKey.split(".")
+  const next = data[head]
+  if (rest.length === 0) {
+    return asObjectRows(next)
+  }
+  if (Array.isArray(next)) {
+    return next.flatMap((item) => {
+      const record = asRecord(item)
+      if (!record) {
+        return []
+      }
+      return nestedRows(record, rest.join("."))
+    })
+  }
+  const record = asRecord(next)
+  return record ? nestedRows(record, rest.join(".")) : []
+}
+
+const findBiovizionRows = (data: Record<string, unknown>, keys: string[]): Array<Record<string, unknown>> => {
+  for (const key of keys) {
+    if (key.includes(".")) {
+      const rows = nestedRows(data, key)
+      if (rows.length > 0) {
+        return rows
+      }
+      continue
+    }
+    const direct = asObjectRows(data[key])
+    if (direct.length > 0) {
+      return direct
+    }
+    if (Array.isArray(data)) {
+      return asObjectRows(data)
+    }
+  }
+  if (Array.isArray(data)) {
+    return asObjectRows(data)
+  }
+  return []
+}
+
+const flattenEquipoRows = (teams: Array<Record<string, unknown>>): Array<Record<string, unknown>> => {
+  const rows: Array<Record<string, unknown>> = []
+  for (const team of teams) {
+    const members = asObjectRows(team.members)
+    for (const member of members) {
+      rows.push({
+        projectTitle: team.projectTitle,
+        ...member,
+      })
+    }
+  }
+  return rows
+}
+
+const formatQueryBiovizion = (output: Record<string, unknown>): string | null => {
+  if (output.ok === false) {
+    return null
+  }
+
+  const resource = typeof output.resource === "string" ? output.resource : ""
+  if (!resource || BIOVIZION_SUMMARY_RESOURCES.has(resource)) {
+    return null
+  }
+
+  const config = BIOVIZION_LIST_RESOURCES[resource]
+  if (!config) {
+    return null
+  }
+
+  if (resource === "horas") {
+    const data = asRecord(output.data)
+    const byDay = data ? asObjectRows(data.byDay) : []
+    if (byDay.length > 0) {
+      const table = formatRows("Horas por día", byDay, [
+        { key: "date", label: "Día" },
+        { key: "totalHours", label: "Horas" },
+      ])
+      if (!table) {
+        return null
+      }
+      const who =
+        typeof data?.userNameFilter === "string" && data.userNameFilter.trim()
+          ? data.userNameFilter.trim()
+          : null
+      const start = cell(data?.fechaInicio)
+      const end = cell(data?.fechaFin)
+      const total = cell(data?.totalHours)
+      const pushLines = asObjectRows(data?.activePushIns).map((row) => {
+        const project = cell(row.projectTitle)
+        const since = cell(row.pushIn)
+        return `- **Push in activo:** ${project} (desde ${since})`
+      })
+      const context = who
+        ? `- **Trabajador:** ${who}\n- **Período:** ${start} → ${end}\n- **Total cerrado:** ${total} h`
+        : `- **Período:** ${start} → ${end}\n- **Total cerrado:** ${total} h`
+      const pushBlock = pushLines.length > 0 ? `\n${pushLines.join("\n")}` : ""
+      return `${context}${pushBlock}\n\n${table}`
+    }
+  }
+
+  const payload = output.data
+  if (Array.isArray(payload)) {
+    const rows =
+      resource === "equipo" ? flattenEquipoRows(asObjectRows(payload)) : asObjectRows(payload)
+    return formatRows(config.title, rows, BIOVIZION_COLUMNS)
+  }
+
+  const data = asRecord(payload) ?? asRecord(output) ?? {}
+  const rows =
+    resource === "equipo" ? flattenEquipoRows(asObjectRows(data)) : findBiovizionRows(data, config.keys)
+
+  return formatRows(config.title, rows, BIOVIZION_COLUMNS)
+}
+
 const formatQueryPrestamo = (output: Record<string, unknown>): string | null => {
   if (output.ok === false) {
     return null
@@ -198,6 +355,9 @@ export const formatToolResultMarkdown = (
   }
   if (toolName === "query_prestamo") {
     return formatQueryPrestamo(output)
+  }
+  if (toolName === "query_biovizion") {
+    return formatQueryBiovizion(output)
   }
   if (toolName === "query_banco") {
     const resource = typeof output.resource === "string" ? output.resource : ""

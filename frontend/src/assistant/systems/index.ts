@@ -1,8 +1,11 @@
-/**
- * Registro de sistemas del asistente en el frontend.
- * BiovizionAlbums está preparado como placeholder para implementación futura.
- */
-export { AGENDA_TOOL_NAMES, ATLAS_TOOL_NAMES, BANCO_TOOL_NAMES, SHARED_TOOL_NAMES } from "../tools/types"
+/** Registro de sistemas del asistente en el frontend. */
+export {
+  AGENDA_TOOL_NAMES,
+  ATLAS_TOOL_NAMES,
+  BANCO_TOOL_NAMES,
+  BIOVIZION_ALBUMS_TOOL_NAMES,
+  SHARED_TOOL_NAMES,
+} from "../tools/types"
 
 export const ASSISTANT_SYSTEMS = {
   agenda: {
@@ -19,6 +22,6 @@ export const ASSISTANT_SYSTEMS = {
   },
   biovizionAlbums: {
     id: "biovizion-albums",
-    toolNames: [] as const,
+    toolNames: ["query_biovizion"] as const,
   },
 } as const

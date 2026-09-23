@@ -7,6 +7,7 @@ import {
   runUpdateTask,
 } from "./agenda/handlers"
 import { runQueryPrestamo } from "./atlas/handlers"
+import { runQueryBiovizion } from "./biovizion-albums/handlers"
 import { runCreateBancoMovimiento, runQueryBanco } from "./banco/handlers"
 import { runEndCall, runGenerateReportPdf } from "./shared/handlers"
 import type { RealtimeChannel } from "@/lib/realtimeChannel"
@@ -20,7 +21,12 @@ const publishStructuredChat = (
   if (!result) {
     return
   }
-  if (toolName === "list_tasks" || toolName === "query_prestamo" || toolName === "query_banco") {
+  if (
+    toolName === "list_tasks" ||
+    toolName === "query_prestamo" ||
+    toolName === "query_banco" ||
+    toolName === "query_biovizion"
+  ) {
     pushSessionToolData(toolName, result.output)
   }
   const markdown = formatToolResultMarkdown(toolName, result.output)
@@ -106,6 +112,11 @@ export const handleRealtimeToolEvent = async (
         publishStructuredChat(call.name, result, handlers)
         handlers?.onAwaitingResponse?.()
       }
+      if (call.name === "query_biovizion") {
+        const result = await runQueryBiovizion(channel, call.callId, call.args)
+        publishStructuredChat(call.name, result, handlers)
+        handlers?.onAwaitingResponse?.()
+      }
       if (call.name === "generate_report_pdf") {
         await runGenerateReportPdf(channel, call.callId, call.args, handlers)
         handlers?.onAwaitingResponse?.()
@@ -124,5 +135,6 @@ export {
   AGENDA_TOOL_NAMES,
   ATLAS_TOOL_NAMES,
   BANCO_TOOL_NAMES,
+  BIOVIZION_ALBUMS_TOOL_NAMES,
   SHARED_TOOL_NAMES,
 } from "./types"

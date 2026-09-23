@@ -1,11 +1,9 @@
+import { buildBiovizionAlbumsInstructions } from "../prompts/biovizion-albums.js"
+import { BIOVIZION_ALBUMS_TOOLS } from "../tools/biovizion-albums.tools.js"
 import type { AssistantSystemModule } from "../types.js"
 
-/**
- * Placeholder para BiovizionAlbums.
- * Cuando se implemente, agregar aquí instrucciones y herramientas específicas.
- */
 export const biovizionAlbumsSystem: AssistantSystemModule = {
   id: "biovizion-albums",
-  instructions: () => [],
-  tools: [],
+  instructions: buildBiovizionAlbumsInstructions,
+  tools: BIOVIZION_ALBUMS_TOOLS,
 }

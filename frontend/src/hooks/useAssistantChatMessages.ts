@@ -5,11 +5,13 @@ import {
   type AssistantMessage,
   type ChatDeltaSource,
 } from "@/lib/assistantChatEvents"
+import { isToolLeadInText } from "@/lib/assistantToolLeadIn"
 import { clearAssistantMessagesRevealed } from "@/lib/assistantMessageRevealed"
 
 export const useAssistantChatMessages = () => {
   const [messages, setMessages] = useState<AssistantMessage[]>([])
   const responseToMessageRef = useRef(new Map<string, string>())
+  const responseMessageHistoryRef = useRef(new Map<string, string>())
   const responseBuffersRef = useRef(new Map<string, string>())
   const finalizedResponsesRef = useRef(new Set<string>())
   const textChannelResponsesRef = useRef(new Set<string>())
@@ -24,6 +26,7 @@ export const useAssistantChatMessages = () => {
 
   const resetMessages = useCallback(() => {
     responseToMessageRef.current.clear()
+    responseMessageHistoryRef.current.clear()
     responseBuffersRef.current.clear()
     finalizedResponsesRef.current.clear()
     textChannelResponsesRef.current.clear()
@@ -152,6 +155,9 @@ export const useAssistantChatMessages = () => {
       }
 
       finalizedResponsesRef.current.add(responseId)
+      if (messageId) {
+        responseMessageHistoryRef.current.set(responseId, messageId)
+      }
 
       setMessages((current) => {
         if (!messageId) {
@@ -236,6 +242,49 @@ export const useAssistantChatMessages = () => {
     skipNextVoiceRef.current = true
   }, [])
 
+  const removeMessageById = useCallback((messageId: string) => {
+    setMessages((current) => current.filter((message) => message.id !== messageId))
+  }, [])
+
+  const discardAssistantResponse = useCallback(
+    (responseId: string) => {
+      if (!responseId) {
+        return
+      }
+      finalizedResponsesRef.current.add(responseId)
+      responseBuffersRef.current.delete(responseId)
+      textChannelResponsesRef.current.delete(responseId)
+      const messageId =
+        responseToMessageRef.current.get(responseId) ??
+        responseMessageHistoryRef.current.get(responseId)
+      responseToMessageRef.current.delete(responseId)
+      responseMessageHistoryRef.current.delete(responseId)
+      if (messageId) {
+        removeMessageById(messageId)
+      }
+    },
+    [removeMessageById],
+  )
+
+  const discardLastAssistantPreface = useCallback(() => {
+    setMessages((current) => {
+      for (let index = current.length - 1; index >= 0; index -= 1) {
+        const message = current[index]
+        if (message.role === "user" || message.attachment) {
+          continue
+        }
+        if (message.streaming) {
+          return current.filter((_, itemIndex) => itemIndex !== index)
+        }
+        if (isToolLeadInText(message.text)) {
+          return current.filter((_, itemIndex) => itemIndex !== index)
+        }
+        break
+      }
+      return current
+    })
+  }, [])
+
   const beginPendingAssistantReply = useCallback(() => {
     if (responseToMessageRef.current.has(PENDING_ASSISTANT_RESPONSE_ID)) {
       return
@@ -267,12 +316,16 @@ export const useAssistantChatMessages = () => {
     finalize,
     beginAssistantResponse,
     beginPendingAssistantReply,
+    discardResponse: discardAssistantResponse,
+    discardLastAssistantPreface,
   })
 
   controllerRef.current.appendDelta = appendDelta
   controllerRef.current.finalize = finalize
   controllerRef.current.beginAssistantResponse = beginAssistantResponse
   controllerRef.current.beginPendingAssistantReply = beginPendingAssistantReply
+  controllerRef.current.discardResponse = discardAssistantResponse
+  controllerRef.current.discardLastAssistantPreface = discardLastAssistantPreface
 
   return {
     messages,

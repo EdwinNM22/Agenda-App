@@ -43,12 +43,21 @@ export const ATLAS_TOOL_NAMES = ["query_prestamo"] as const
 /** Herramientas del sistema Banco. */
 export const BANCO_TOOL_NAMES = ["query_banco", "create_banco_movimiento"] as const
 
+/** Herramientas del sistema Biovizion Albums. */
+export const BIOVIZION_ALBUMS_TOOL_NAMES = ["query_biovizion"] as const
+
 /** Herramientas compartidas (no pertenecen a un sistema específico). */
 export const SHARED_TOOL_NAMES = ["generate_report_pdf", "end_call"] as const
 
 export type AgendaToolName = (typeof AGENDA_TOOL_NAMES)[number]
 export type AtlasToolName = (typeof ATLAS_TOOL_NAMES)[number]
 export type BancoToolName = (typeof BANCO_TOOL_NAMES)[number]
+export type BiovizionAlbumsToolName = (typeof BIOVIZION_ALBUMS_TOOL_NAMES)[number]
 export type SharedToolName = (typeof SHARED_TOOL_NAMES)[number]
 
-export type AssistantToolName = AgendaToolName | AtlasToolName | BancoToolName | SharedToolName
+export type AssistantToolName =
+  | AgendaToolName
+  | AtlasToolName
+  | BancoToolName
+  | BiovizionAlbumsToolName
+  | SharedToolName

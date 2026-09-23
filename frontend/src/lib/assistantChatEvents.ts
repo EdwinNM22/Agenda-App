@@ -1,3 +1,5 @@
+import { responseIncludesFunctionCall } from "@/lib/assistantToolLeadIn"
+
 export type AssistantPdfAttachment = {
   type: "pdf"
   url: string
@@ -25,6 +27,10 @@ export type AssistantChatController = {
   finalize: (responseId: string, text?: string, source?: ChatDeltaSource) => void
   beginAssistantResponse: (responseId: string) => void
   beginPendingAssistantReply: () => void
+  /** Quita burbuja de una respuesta que solo anunciaba una tool. */
+  discardResponse?: (responseId: string) => void
+  /** Si la última burbuja del asistente es relleno previo a tool, quitarla. */
+  discardLastAssistantPreface?: () => void
 }
 
 export const responseIdFrom = (event: Record<string, unknown>) => {
@@ -158,11 +164,19 @@ export const handleAssistantChatEvent = (
   }
 
   if (type === "response.output_item.done" && responseId) {
+    const item = event.item as { type?: string } | undefined
+    if (item?.type === "function_call") {
+      chat.discardResponse?.(responseId)
+      return
+    }
     const text = textPartsFromItem(event.item)
     if (text) {
-      const item = event.item as { content?: Array<{ type?: string }> } | undefined
-      const hasTextPart = Array.isArray(item?.content) &&
-        item.content.some((part) => part?.type === "output_text" || part?.type === "text")
+      const hasTextPart = Array.isArray(
+        (item as { content?: Array<{ type?: string }> } | undefined)?.content,
+      ) &&
+        (item as { content?: Array<{ type?: string }> }).content!.some(
+          (part) => part?.type === "output_text" || part?.type === "text",
+        )
       chat.finalize(responseId, text, hasTextPart ? "text" : "transcript")
     }
     return
@@ -170,6 +184,10 @@ export const handleAssistantChatEvent = (
 
   if (type === "response.done" && responseId) {
     const response = event.response as Record<string, unknown> | undefined
+    if (responseIncludesFunctionCall(response)) {
+      chat.discardResponse?.(responseId)
+      return
+    }
     const text = textFromResponse(response)
     chat.finalize(responseId, text || undefined, text ? "text" : "transcript")
   }
