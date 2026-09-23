@@ -2,7 +2,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -33,13 +32,6 @@ export const AssistantSheetProvider = ({ children }: { children: ReactNode }) =>
   const closeSheet = useCallback(() => {
     setOpen(false)
   }, [])
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("assistant-sheet-open", open)
-    return () => {
-      document.documentElement.classList.remove("assistant-sheet-open")
-    }
-  }, [open])
 
   const value = useMemo(
     () => ({

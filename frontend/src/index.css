@@ -155,8 +155,6 @@ html.dark:not(.wallpaper) .k-app {
   /* Tab bar (h-16) + márgenes + home indicator — una sola fuente de verdad */
   --agenda-tabbar-offset: calc(var(--k-safe-area-bottom) + 5.75rem);
   --keyboard-inset: 0px;
-  --visual-viewport-height: 100dvh;
-  --visual-viewport-offset-y: 0px;
   /* Altura útil de Home: viewport completo menos tab bar (sin restar safe-top otra vez) */
   --agenda-home-height: calc(100dvh - var(--agenda-tabbar-offset) - var(--keyboard-inset));
 }
@@ -194,30 +192,11 @@ html.pwa-standalone #root {
   max-height: var(--agenda-home-height);
 }
 
-/* Panel de chat: anclado al visual viewport (height ya excluye teclado; no restar keyboard-inset otra vez). */
+/* Chat sheet: altura acotada; el sheet base usa bottom + keyboard-inset. */
 .assistant-chat-sheet[data-side="bottom"] {
-  top: var(--visual-viewport-offset-y, 0px) !important;
-  right: 0 !important;
-  left: 0 !important;
-  bottom: auto !important;
-  width: 100% !important;
-  max-width: none !important;
-  margin-inline: 0 !important;
-  height: var(--visual-viewport-height, 100dvh) !important;
-  max-height: var(--visual-viewport-height, 100dvh) !important;
-  box-sizing: border-box;
-  padding-top: var(--k-safe-area-top);
-  transform: none !important;
-  transition: top 0.05s linear, height 0.05s linear;
-}
-
-html.keyboard-open .assistant-chat-sheet[data-side="bottom"] {
-  padding-top: 0;
-  padding-bottom: 0.35rem;
-}
-
-html.keyboard-open .assistant-chat-sheet .assistant-chat-composer {
-  padding-bottom: 0.25rem;
+  top: auto !important;
+  height: auto !important;
+  max-height: min(92dvh, calc(100dvh - var(--keyboard-inset, 0px) - var(--k-safe-area-top))) !important;
 }
 
 html.pwa-ios {
@@ -238,11 +217,6 @@ a,
 html.keyboard-open .agenda-tabbar-wrap {
   translate: 0 110%;
   pointer-events: none;
-}
-
-html.ios.assistant-sheet-open body {
-  overflow: hidden;
-  overscroll-behavior: none;
 }
 
 .yarl__toolbar {

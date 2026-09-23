@@ -67,45 +67,15 @@ const bindVisualViewport = () => {
   const root = document.documentElement
   const sync = () => {
     const viewport = window.visualViewport
-    if (viewport) {
-      root.style.setProperty("--visual-viewport-height", `${viewport.height}px`)
-      root.style.setProperty("--visual-viewport-offset-y", `${viewport.offsetTop}px`)
-      const keyboard = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
-      root.style.setProperty("--keyboard-inset", `${keyboard}px`)
-      root.classList.toggle("keyboard-open", keyboard > 80)
-      return
-    }
-    root.style.setProperty("--visual-viewport-height", `${window.innerHeight}px`)
-    root.style.setProperty("--visual-viewport-offset-y", "0px")
-    root.style.setProperty("--keyboard-inset", "0px")
-    root.classList.remove("keyboard-open")
+    const keyboard = viewport
+      ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+      : 0
+    root.style.setProperty("--keyboard-inset", `${keyboard}px`)
+    root.classList.toggle("keyboard-open", keyboard > 80)
   }
-  const scheduleSync = () => {
-    sync()
-    requestAnimationFrame(sync)
-    window.setTimeout(sync, 120)
-  }
-
-  window.visualViewport?.addEventListener("resize", scheduleSync)
-  window.visualViewport?.addEventListener("scroll", () => {
-    scheduleSync()
-    if (document.documentElement.classList.contains("assistant-sheet-open") && window.scrollY !== 0) {
-      window.scrollTo(0, 0)
-    }
-  })
-  window.addEventListener("orientationchange", scheduleSync)
-  document.addEventListener("focusin", (event) => {
-    const target = event.target
-    if (target instanceof HTMLElement && target.closest(".assistant-chat-sheet")) {
-      scheduleSync()
-    }
-  })
-  document.addEventListener("focusout", (event) => {
-    const target = event.target
-    if (target instanceof HTMLElement && target.closest(".assistant-chat-sheet")) {
-      scheduleSync()
-    }
-  })
+  window.visualViewport?.addEventListener("resize", sync)
+  window.visualViewport?.addEventListener("scroll", sync)
+  window.addEventListener("orientationchange", sync)
   sync()
 }
 
