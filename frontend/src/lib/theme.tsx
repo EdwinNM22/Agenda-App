@@ -165,7 +165,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       {typeof document !== "undefined" && theme === "wallpaper" && wallpaper
         ? createPortal(
             <div
-              className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
+              className="wallpaper-backdrop pointer-events-none fixed inset-0 z-0 overflow-hidden"
               aria-hidden
             >
               <img

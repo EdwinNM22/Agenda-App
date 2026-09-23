@@ -148,6 +148,8 @@ html.dark:not(.wallpaper) .k-app {
 }
 
 :root {
+  /* Safari: dvh. PWA iOS standalone: sobrescrito a 100vh (dvh resta safe-top por error). */
+  --app-height: 100dvh;
   --k-safe-area-top: env(safe-area-inset-top, 0px);
   --k-safe-area-right: env(safe-area-inset-right, 0px);
   --k-safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -156,14 +158,36 @@ html.dark:not(.wallpaper) .k-app {
   --agenda-tabbar-offset: calc(var(--k-safe-area-bottom) + 5.75rem);
   --keyboard-inset: 0px;
   /* Altura útil de Home: viewport completo menos tab bar (sin restar safe-top otra vez) */
-  --agenda-home-height: calc(100dvh - var(--agenda-tabbar-offset) - var(--keyboard-inset));
+  --agenda-home-height: calc(var(--app-height) - var(--agenda-tabbar-offset) - var(--keyboard-inset));
+}
+
+@media (display-mode: standalone) {
+  :root {
+    --app-height: 100vh;
+  }
+}
+
+html.pwa-standalone {
+  --app-height: 100vh;
 }
 
 html,
 body,
 #root {
   min-height: 100%;
-  min-height: 100dvh;
+  min-height: var(--app-height);
+}
+
+.wallpaper-backdrop {
+  min-height: var(--app-height);
+  height: var(--app-height);
+}
+
+html.pwa-standalone [data-slot="sheet-content"][data-side="bottom"]:not(.assistant-chat-sheet) {
+  max-height: min(
+    88vh,
+    calc(var(--app-height) - var(--keyboard-inset) - var(--k-safe-area-top))
+  ) !important;
 }
 
 html {
@@ -176,14 +200,16 @@ body {
 }
 
 html.pwa-standalone {
-  height: 100%;
-  height: 100dvh;
+  height: var(--app-height);
 }
 
 html.pwa-standalone body,
 html.pwa-standalone #root {
-  min-height: 100%;
-  min-height: 100dvh;
+  min-height: var(--app-height);
+}
+
+.k-app-shell {
+  min-height: var(--app-height);
 }
 
 /* Home a altura fija del viewport útil; solo el panel de chat hace scroll */
@@ -201,18 +227,18 @@ html.pwa-standalone #root {
   width: 100% !important;
   max-width: none !important;
   margin-inline: 0 !important;
-  height: calc(100dvh - var(--k-safe-area-top)) !important;
-  min-height: calc(100dvh - var(--k-safe-area-top)) !important;
-  max-height: calc(100dvh - var(--k-safe-area-top)) !important;
+  height: calc(var(--app-height) - var(--k-safe-area-top)) !important;
+  min-height: calc(var(--app-height) - var(--k-safe-area-top)) !important;
+  max-height: calc(var(--app-height) - var(--k-safe-area-top)) !important;
   border-top-left-radius: 1.75rem;
   border-top-right-radius: 1.75rem;
 }
 
 html.keyboard-open .assistant-chat-sheet[data-side="bottom"] {
   bottom: var(--keyboard-inset, 0px) !important;
-  height: calc(100dvh - var(--k-safe-area-top) - var(--keyboard-inset, 0px)) !important;
-  min-height: calc(100dvh - var(--k-safe-area-top) - var(--keyboard-inset, 0px)) !important;
-  max-height: calc(100dvh - var(--k-safe-area-top) - var(--keyboard-inset, 0px)) !important;
+  height: calc(var(--app-height) - var(--k-safe-area-top) - var(--keyboard-inset, 0px)) !important;
+  min-height: calc(var(--app-height) - var(--k-safe-area-top) - var(--keyboard-inset, 0px)) !important;
+  max-height: calc(var(--app-height) - var(--k-safe-area-top) - var(--keyboard-inset, 0px)) !important;
 }
 
 html.wallpaper .assistant-chat-sheet[data-slot="sheet-content"],

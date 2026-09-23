@@ -73,11 +73,21 @@ const bindVisualViewport = () => {
     const keyboard = rawKeyboard > 80 ? rawKeyboard : 0
     root.style.setProperty("--keyboard-inset", `${keyboard}px`)
     root.classList.toggle("keyboard-open", keyboard > 0)
+    syncAppViewportHeight()
   }
   window.visualViewport?.addEventListener("resize", sync)
   window.visualViewport?.addEventListener("scroll", sync)
   window.addEventListener("orientationchange", sync)
   sync()
+}
+
+const syncAppViewportHeight = () => {
+  const root = document.documentElement
+  if (isStandalone()) {
+    root.style.setProperty("--app-height", "100vh")
+    return
+  }
+  root.style.removeProperty("--app-height")
 }
 
 const markDisplayMode = () => {
@@ -87,6 +97,7 @@ const markDisplayMode = () => {
   root.classList.toggle("pwa-standalone", standalone)
   root.classList.toggle("pwa-ios", ios && standalone)
   root.classList.toggle("ios", ios)
+  syncAppViewportHeight()
 }
 
 let applyUpdate: ((reloadPage?: boolean) => Promise<void>) | undefined

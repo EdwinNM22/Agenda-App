@@ -84,11 +84,11 @@ const ShellChrome = () => {
       dark={theme !== "light"}
       safeAreas
       className={cn(
-        "k-app-shell min-h-dvh text-foreground",
+        "k-app-shell min-h-[var(--app-height)] text-foreground",
         theme === "dark" ? "!bg-transparent" : "bg-background",
       )}
     >
-      <div className="relative min-h-dvh pb-[var(--agenda-tabbar-offset)]">
+      <div className="relative min-h-[var(--app-height)] pb-[var(--agenda-tabbar-offset)]">
         <TabScreen active={pathname === "/"} fade={theme !== "wallpaper"}>
           <HomePage />
         </TabScreen>
@@ -110,7 +110,7 @@ const ShellChrome = () => {
       <FloatingAssistant />
 
       <motion.div
-        className="agenda-tabbar-wrap fixed inset-x-0 bottom-0 z-50"
+        className="agenda-tabbar-wrap fixed inset-x-0 bottom-0 z-50 pb-[var(--k-safe-area-bottom)]"
         animate={{ y: hidden ? "110%" : 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 34 }}
       >

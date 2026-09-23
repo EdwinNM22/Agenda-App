@@ -32,6 +32,10 @@
           (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
         if (ios) document.documentElement.classList.add("ios")
         if (standalone && ios) document.documentElement.classList.add("pwa-ios")
+        /* iOS standalone: 100dvh/min-h-dvh mienten (~safe-area-top). Ver WebKit #254868. */
+        if (standalone) {
+          document.documentElement.style.setProperty("--app-height", "100vh")
+        }
 
         const theme = localStorage.getItem("agenda.theme")
         const dark = theme !== "light"
