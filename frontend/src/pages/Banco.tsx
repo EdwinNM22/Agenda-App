@@ -354,7 +354,7 @@ export const BancoPage = () => {
       <Sheet open={formMode !== null} onOpenChange={(open) => !open && closeForm()}>
         <SheetContent
           side="bottom"
-          className="z-60 gap-0 overflow-y-auto rounded-t-3xl pb-[calc(var(--k-safe-area-bottom)+1rem)]"
+          className="gap-0 overflow-y-auto rounded-t-3xl pb-[calc(var(--k-safe-area-bottom)+1rem)]"
         >
           <form onSubmit={(event) => void handleSubmit(event)}>
             <SheetHeader className="border-b">

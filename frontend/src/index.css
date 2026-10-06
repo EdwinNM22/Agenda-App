@@ -261,6 +261,12 @@ html.assistant-chat-open .agenda-tabbar-dock {
   pointer-events: none;
 }
 
+html:has([data-slot="sheet-overlay"][data-state="open"]) .agenda-tabbar-dock,
+html:has([data-slot="sheet-overlay"][data-open]) .agenda-tabbar-dock {
+  translate: 0 110%;
+  pointer-events: none;
+}
+
 html.pwa-ios {
   -webkit-tap-highlight-color: transparent;
 }
