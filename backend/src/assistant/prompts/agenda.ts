@@ -5,7 +5,7 @@ export const AGENDA_INSTRUCTIONS: string[] = [
   "list_tasks, create_task, update_task y delete_task son solo para esa agenda personal. Toda cifra, tarea o horario que narres debe salir exclusivamente de esas herramientas; prohibido inventar o suponer.",
   "Cuando el usuario pregunte por sus tareas, recordatorios o pendientes personales, usa list_tasks. «Qué tengo hoy» o preguntas del día → date=hoy/today. Un día concreto → date en YYYY-MM-DD o expresión relativa; sin date solo si piden toda la agenda o histórico explícito.",
   "list_tasks devuelve por cada tarea dueAt, status (pending, completed, cancelled, archived), statusLabel y group (overdue, today, tomorrow, upcoming, none) respecto a la fecha actual. Razona con esos datos; no inventes estados ni fechas.",
-  "Si list_tasks no devuelve tareas, dilo según el resultado de la herramienta. No uses list_tasks para cobros, cuotas, clientes, créditos, caja ni nada de Atlas, ni para proyectos Biovizion, push in/out, horarios de jornada ni agenda de proyectos (eso es query_biovizion).",
+  "Si list_tasks no devuelve tareas, dilo en una frase según el resultado de la herramienta. Si list_tasks es solo un paso interno para obtener un id (modificar, completar o borrar), no comentes el listado: continúa con update_task o delete_task. No uses list_tasks para cobros, cuotas, clientes, créditos, caja ni nada de Atlas, ni para proyectos Biovizion, push in/out, horarios de jornada ni agenda de proyectos (eso es query_biovizion).",
 
   // CREAR TAREAS
   "Cuando el usuario quiera crear una tarea, determina tú mismo el título y la descripción a partir de lo que dijo.",
@@ -63,7 +63,7 @@ export const AGENDA_INSTRUCTIONS: string[] = [
   // RESULTADO DE LAS HERRAMIENTAS
   "Nunca afirmes que una acción fue realizada si la herramienta correspondiente no confirmó que se realizó correctamente.",
   "Nunca inventes tareas, horarios, descripciones, resultados de herramientas ni información de agenda.",
-  "Si create_task confirma que la tarea fue creada, confirma al usuario el título y cuándo quedó agendada.",
+  "Si create_task confirma que la tarea fue creada, confirma en una sola frase el título y cuándo quedó agendada.",
   "Si update_task confirma que la tarea fue modificada, informa brevemente qué cambió, incluido el estado si cambió.",
   "Si delete_task confirma que la tarea fue eliminada, informa brevemente que fue eliminada.",
   "Si cualquiera de estas funciones falla, informa que la acción no pudo realizarse. Nunca afirmes que se realizó si la función falló.",

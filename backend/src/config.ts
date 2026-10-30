@@ -27,6 +27,15 @@ export const config = {
   corsOrigins: parseCorsOrigins(process.env.CORS_ORIGIN ?? ""),
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   openaiRealtimeModel: process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime-2.1-mini",
+  /** none | minimal | low | medium | high | xhigh. Vacío = no enviar (valor por defecto del modelo). */
+  openaiRealtimeReasoningEffort: (process.env.OPENAI_REALTIME_REASONING_EFFORT ?? "low").trim(),
+  /**
+   * Modelo de transcripción de lo que dice el usuario (texto del chat y detección de eco).
+   * whisper-1 alucinaba otros idiomas con audio corto o ruidoso; gpt-4o-transcribe no.
+   */
+  openaiRealtimeTranscriptionModel: (
+    process.env.OPENAI_REALTIME_TRANSCRIPTION_MODEL ?? "gpt-4o-transcribe"
+  ).trim(),
   openaiGreetingModel: process.env.OPENAI_GREETING_MODEL ?? "gpt-4o-mini",
   vapidPublicKey: (process.env.VAPID_PUBLIC_KEY ?? "").trim(),
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY?.trim() ?? "",

@@ -2,9 +2,12 @@
 export type RealtimeChannel = {
   readyState: "open" | "connecting" | "closing" | "closed"
   send: (data: string) => void
+  /** Cómo se entrega la respuesta. Si no se indica (datachannel WebRTC), es voz. */
+  modality?: "voice" | "text"
 }
 
 export const channelFromWebSocket = (ws: WebSocket): RealtimeChannel => ({
+  modality: "text",
   get readyState() {
     if (ws.readyState === WebSocket.OPEN) {
       return "open"

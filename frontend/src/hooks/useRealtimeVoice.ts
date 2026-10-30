@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
   captureMicrophone,
+  describeAudioPlatform,
   describeMicError,
+  describeMicProcessing,
   releaseCallAudioSession,
   stopMicrophone,
   setAudioSessionType,
+  watchMicrophone,
+  type MicLossReason,
 } from "@/audio/audioSession"
+import { createEchoMonitor, type EchoMonitor } from "@/audio/echoMonitor"
+import { createPreambleSuppressor, type PreambleSuppressor } from "@/audio/preambleSuppressor"
+import { createVoiceGuard, type VoiceGuard } from "@/audio/voiceGuard"
 import { api } from "@/lib/api"
 import { handleAssistantChatEvent, responseIdFrom } from "@/lib/assistantChatEvents"
 import { channelFromWebSocket, type RealtimeChannel } from "@/lib/realtimeChannel"
@@ -189,6 +196,10 @@ export const useRealtimeVoice = () => {
   const lastUserTranscriptRef = useRef("")
   const isiQuietTimerRef = useRef(0)
   const awaitingTimerRef = useRef(0)
+  const guardRef = useRef<VoiceGuard | null>(null)
+  const preambleRef = useRef<PreambleSuppressor | null>(null)
+  const monitorRef = useRef<EchoMonitor | null>(null)
+  const unwatchMicRef = useRef<(() => void) | null>(null)
   const [busy, setBusy] = useState(false)
   const [hearingUser, setHearingUser] = useState(false)
   const toolsRef = useRef<string[]>([])
@@ -243,6 +254,14 @@ export const useRealtimeVoice = () => {
   }, [])
 
   const releaseCall = useCallback(() => {
+    unwatchMicRef.current?.()
+    unwatchMicRef.current = null
+    guardRef.current?.destroy()
+    guardRef.current = null
+    preambleRef.current?.reset()
+    preambleRef.current = null
+    monitorRef.current?.destroy()
+    monitorRef.current = null
     peerRef.current?.close()
     peerRef.current = null
     channelRef.current = null
@@ -573,6 +592,115 @@ export const useRealtimeVoice = () => {
         peer.addTrack(track, micStream)
       })
 
+      // Qué procesado de audio aplicó de verdad el navegador (varía por plataforma y PWA).
+      logIsi("micrófono", {
+        ...describeMicProcessing(micStream),
+        plataforma: describeAudioPlatform(),
+      })
+
+      // Decide qué es voz del usuario y qué es el eco del propio asistente (ver audio/voiceGuard.ts).
+      const guard = createVoiceGuard({
+        send: (payload) => {
+          const target = channelRef.current
+          if (!target || target.readyState !== "open") {
+            return false
+          }
+          target.send(JSON.stringify(payload))
+          return true
+        },
+        log: logIsi,
+        onHearingUser: (active) => {
+          setHearingUser(active)
+          if (active) {
+            // Nuevo turno del usuario: no arrastrar un “saltar voz” de la consulta anterior.
+            clearVoiceSkipRef.current()
+          }
+        },
+      })
+      guardRef.current = guard
+
+      // Si el modelo suelta un preámbulo hablado antes de una tool, se corta el audio.
+      preambleRef.current?.reset()
+      preambleRef.current = createPreambleSuppressor({
+        setMuted: (muted) => {
+          if (audioRef.current) {
+            audioRef.current.muted = muted
+          }
+        },
+        clearOutput: () => {
+          const target = channelRef.current
+          if (target?.readyState === "open") {
+            target.send(JSON.stringify({ type: "output_audio_buffer.clear" }))
+          }
+        },
+        log: logIsi,
+      })
+
+      // Pérdida del micrófono (dispositivo desconectado, interrupción del sistema, permiso revocado):
+      // se reabre y se sustituye la pista en la conexión sin colgar. Si no se puede, se avisa.
+      let recoveringMic = false
+      const watchMic = (stream: MediaStream) =>
+        watchMicrophone(stream, (reason) => {
+          void recoverMicrophone(reason)
+        })
+      const recoverMicrophone = async (reason: MicLossReason) => {
+        if (recoveringMic || generation !== generationRef.current) {
+          return
+        }
+        recoveringMic = true
+        logIsi("micrófono perdido", reason)
+        try {
+          let lastError: unknown = reason === "denied" ? new DOMException("denied", "NotAllowedError") : null
+          for (let attempt = 0; attempt < 3 && reason !== "denied"; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 300 : attempt * 1000))
+            if (generation !== generationRef.current) {
+              return
+            }
+            try {
+              const fresh = await captureMicrophone()
+              if (generation !== generationRef.current) {
+                stopMicrophone(fresh)
+                return
+              }
+              const track = fresh.getAudioTracks()[0]
+              const sender =
+                peer.getSenders().find((item) => item.track?.kind === "audio") ??
+                peer.getTransceivers().find((item) => item.receiver.track.kind === "audio")?.sender
+              if (!track || !sender) {
+                stopMicrophone(fresh)
+                throw new Error("No se pudo reconectar el micrófono a la llamada")
+              }
+              await sender.replaceTrack(track)
+              unwatchMicRef.current?.()
+              stopMicrophone(streamRef.current)
+              streamRef.current = fresh
+              setLocalStream(fresh)
+              monitorRef.current?.setMicStream(fresh)
+              unwatchMicRef.current = watchMic(fresh)
+              logIsi("micrófono recuperado", describeMicProcessing(fresh))
+              return
+            } catch (err) {
+              lastError = err
+              if (err instanceof DOMException && err.name === "NotAllowedError") {
+                break
+              }
+            }
+          }
+          if (generation === generationRef.current) {
+            hangUp()
+            setVoiceStatus("error")
+            setError(
+              lastError instanceof DOMException && lastError.name === "NotAllowedError"
+                ? "Se perdió el acceso al micrófono. Revisa el permiso del sitio y vuelve a iniciar la llamada."
+                : `Se perdió el micrófono. ${describeMicError(lastError)}`,
+            )
+          }
+        } finally {
+          recoveringMic = false
+        }
+      }
+      unwatchMicRef.current = watchMic(micStream)
+
       let greetingInstruction = ""
       const greetChannelRef = { current: null as RTCDataChannel | null }
       let remoteReady = false
@@ -580,27 +708,17 @@ export const useRealtimeVoice = () => {
       let greetingWatchdog = 0
       let greetingRetryUsed = false
       let userTurnFallbackTimer = 0
+      // Nº de respuestas creadas por el servidor. Se anota al cerrarse cada turno del usuario para
+      // saber, cuando llega su transcripción (asíncrona, puede ir DESPUÉS de la respuesta), si el
+      // turno ya fue contestado. Sin esto el respaldo duplicaba la respuesta.
+      let responseSeq = 0
+      const turnResponseSeq = new Map<string, number>()
+      const turnStoppedAt = new Map<string, number>()
 
-      const setListening = (createResponse: boolean, channel: RTCDataChannel | null) => {
-        if (channel?.readyState === "open") {
-          channel.send(
-            JSON.stringify({
-              type: "session.update",
-              session: {
-                audio: {
-                  input: {
-                    turn_detection: {
-                      type: "semantic_vad",
-                      eagerness: "low",
-                      interrupt_response: true,
-                      create_response: createResponse,
-                    },
-                  },
-                },
-              },
-            }),
-          )
-        }
+      // Los turnos automáticos (crear respuesta al terminar el usuario) los gestiona el guard: así
+      // se pausan mientras el asistente suena y el eco no genera peticiones.
+      const setListening = (createResponse: boolean) => {
+        guard.setTurnTaking(createResponse)
       }
 
       const finishGreeting = () => {
@@ -610,7 +728,7 @@ export const useRealtimeVoice = () => {
         greetingPlayingRef.current = false
         greetingResponseOpen = false
         logIsi("abrió el turno después del saludo")
-        setListening(true, greetChannelRef.current ?? channelRef.current)
+        setListening(true)
         flushPendingText()
         syncBusy()
       }
@@ -624,7 +742,7 @@ export const useRealtimeVoice = () => {
           greetedRef.current = true
           greetingPlayingRef.current = false
           logIsi("omitió el saludo: hay un mensaje del usuario")
-          setListening(true, channel)
+          setListening(true)
           flushPendingText()
           syncBusy()
           return
@@ -637,7 +755,7 @@ export const useRealtimeVoice = () => {
         greetingResponseOpen = true
         syncBusy()
         logIsi("envió el saludo inicial")
-        setListening(false, channel)
+        setListening(false)
         sendConnectGreeting(channel, greetingInstruction)
         window.clearTimeout(greetingWatchdog)
         greetingWatchdog = window.setTimeout(() => {
@@ -665,6 +783,14 @@ export const useRealtimeVoice = () => {
         remoteReady = true
         const remote = event.streams[0] ?? new MediaStream([event.track])
         setRemoteStream(remote)
+        if (streamRef.current && !monitorRef.current) {
+          const monitor = createEchoMonitor(streamRef.current, remote)
+          monitorRef.current = monitor
+          guard.attachMonitor(monitor)
+          if (!monitor) {
+            logIsi("sin análisis local de eco: se usa la interrupción nativa del servidor")
+          }
+        }
         const audio = audioRef.current
         if (audio) {
           setAudioSessionType("play-and-record")
@@ -694,17 +820,14 @@ export const useRealtimeVoice = () => {
                     transcription: {
                       model: "whisper-1",
                     },
-                    turn_detection: {
-                      type: "semantic_vad",
-                      eagerness: "low",
-                      interrupt_response: true,
-                      create_response: false,
-                    },
                   },
                 },
               },
             }),
           )
+          // Sin respuestas automáticas hasta que termine el saludo.
+          guard.setTurnTaking(false)
+          guard.syncTurnDetection()
         }
         if (canGreet) {
           greetChannelRef.current = channel
@@ -733,14 +856,9 @@ export const useRealtimeVoice = () => {
           if (typeof type !== "string") {
             return
           }
-          if (type === "input_audio_buffer.speech_started") {
-            setHearingUser(true)
-            // Nuevo turno del usuario: no arrastrar un “saltar voz” de la consulta anterior.
-            clearVoiceSkipRef.current()
-          }
-          if (type === "input_audio_buffer.speech_stopped") {
-            setHearingUser(false)
-          }
+          // Clasifica voz del usuario vs. eco del asistente y gobierna interrupciones/turnos.
+          guard.handleEvent(event as Record<string, unknown>)
+          preambleRef.current?.handleEvent(event as Record<string, unknown>)
           if (
             type.includes("output_audio") &&
             (type.includes("delta") || type.includes("started"))
@@ -763,13 +881,46 @@ export const useRealtimeVoice = () => {
             }, 1200)
           }
           const record = event as Record<string, unknown>
+          if (
+            (type === "input_audio_buffer.speech_stopped" || type === "input_audio_buffer.committed") &&
+            typeof record.item_id === "string" &&
+            !turnResponseSeq.has(record.item_id)
+          ) {
+            turnResponseSeq.set(record.item_id, responseSeq)
+            turnStoppedAt.set(record.item_id, Date.now())
+            if (turnResponseSeq.size > 24) {
+              const oldest = turnResponseSeq.keys().next().value
+              if (oldest !== undefined) {
+                turnResponseSeq.delete(oldest)
+                turnStoppedAt.delete(oldest)
+              }
+            }
+          }
           if (type.includes("input_audio_transcription.completed")) {
             const heard = nestedTranscript(record) || assistantHeardBuffer
-            if (heard) {
-              lastUserTranscriptRef.current = heard
-              appendUserMessageRef.current(heard)
+            const itemId = typeof record.item_id === "string" ? record.item_id : undefined
+            // El eco del asistente transcrito no es una petición: ni se muestra, ni cuenta para
+            // colgar, ni crea una respuesta.
+            const isEcho = guard.judgeTranscript(itemId, heard) === "echo"
+            const spokenAt = itemId !== undefined ? turnStoppedAt.get(itemId) : undefined
+            if (itemId !== undefined) {
+              turnStoppedAt.delete(itemId)
             }
-            if (greetedRef.current && !greetingPlayingRef.current) {
+            if (heard && !isEcho) {
+              lastUserTranscriptRef.current = heard
+              appendUserMessageRef.current(heard, spokenAt)
+            }
+            // ¿El servidor ya creó una respuesta después de que este turno terminó? Entonces el turno
+            // está atendido (la transcripción llegó tarde) y el respaldo no debe crear otra.
+            const turnSeq = itemId !== undefined ? turnResponseSeq.get(itemId) : undefined
+            if (itemId !== undefined) {
+              turnResponseSeq.delete(itemId)
+            }
+            const alreadyAnswered = turnSeq !== undefined && responseSeq > turnSeq
+            if (alreadyAnswered) {
+              logIsi("turno ya atendido por el servidor: sin respuesta de respaldo")
+            }
+            if (!isEcho && !alreadyAnswered && greetedRef.current && !greetingPlayingRef.current) {
               window.clearTimeout(userTurnFallbackTimer)
               userTurnFallbackTimer = window.setTimeout(() => {
                 if (generation !== generationRef.current) {
@@ -783,16 +934,21 @@ export const useRealtimeVoice = () => {
                 ) {
                   return
                 }
+                // Petición dicha mientras el asistente hablaba: el guard la atiende al terminar.
+                if (guard.hasDeferredRequest()) {
+                  return
+                }
                 if (channel.readyState !== "open") {
                   return
                 }
                 logIsi("fallback: creando respuesta tras turno del usuario")
-                setListening(true, channel)
+                setListening(true)
                 channel.send(JSON.stringify({ type: "response.create" }))
               }, 900)
             }
           }
           if (type === "response.created") {
+            responseSeq += 1
             window.clearTimeout(userTurnFallbackTimer)
             window.clearTimeout(awaitingTimerRef.current)
             awaitingResponseRef.current = false

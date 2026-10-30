@@ -201,7 +201,12 @@ export const useAssistantChatMessages = () => {
     [],
   )
 
-  const appendUserMessage = useCallback((text: string) => {
+  /**
+   * `spokenAt`: momento en que el usuario terminó de hablar. La transcripción de la voz es
+   * asíncrona y puede llegar DESPUÉS de que el asistente ya empezó a contestar; en ese caso el
+   * mensaje se coloca antes de esas respuestas para que el chat conserve el orden real.
+   */
+  const appendUserMessage = useCallback((text: string, spokenAt?: number) => {
     const trimmed = text.trim()
     if (!trimmed) {
       return
@@ -211,16 +216,24 @@ export const useAssistantChatMessages = () => {
       if (last?.role === "user" && last.text === trimmed) {
         return current
       }
-      return [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          role: "user",
-          text: trimmed,
-          streaming: false,
-          createdAt: Date.now(),
-        },
-      ]
+      const message = {
+        id: crypto.randomUUID(),
+        role: "user" as const,
+        text: trimmed,
+        streaming: false,
+        createdAt: spokenAt ?? Date.now(),
+      }
+      let index = current.length
+      if (spokenAt !== undefined) {
+        while (index > 0) {
+          const previous = current[index - 1]
+          if (!previous || previous.role === "user" || previous.createdAt < spokenAt) {
+            break
+          }
+          index -= 1
+        }
+      }
+      return [...current.slice(0, index), message, ...current.slice(index)]
     })
   }, [])
 

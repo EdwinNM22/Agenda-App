@@ -111,11 +111,11 @@ Archivo: `frontend/src/hooks/useRealtimeVoice.ts`.
 
 Al pulsar **Hablar**:
 
-1. Pide el micrófono (`getUserMedia` con `echoCancellation: true`; `autoGainControl` apagado para no amplificar el eco del altavoz).
-2. Pasa el mic por el pipeline de voz (AEC + RNNoise/Speex). Ver sección de eco.
-3. Crea un `RTCPeerConnection` y añade el **track ya limpio**, no el mic crudo.
-4. Reproduce el audio remoto en un `<audio autoPlay playsInline>` (`peer.ontrack`).
-5. Ese mismo audio remoto se clona y se usa como referencia del AEC (`setEchoReference`).
+1. Pide el micrófono (`captureMicrophone` en `audioSession.ts`): `getUserMedia` con `echoCancellation`, `noiseSuppression` (y `voiceIsolation` si existe) y `autoGainControl` apagado. Se verifica con `track.getSettings()` qué se aplicó de verdad. Ver sección de eco.
+2. Crea un `RTCPeerConnection` y añade el track del micrófono (el procesado lo hace el navegador; no hay pipeline propio en el camino del audio).
+3. Reproduce el audio remoto en un `<audio autoPlay playsInline>` (`peer.ontrack`).
+4. Con el stream remoto y el mic se crea el `echoMonitor` (solo análisis, no toca el audio) y el `voiceGuard` (ver sección de eco).
+5. `watchMicrophone` vigila el track (`ended`, `mute`/`unmute`, `devicechange`, permisos, `visibilitychange`) y recupera el mic con `replaceTrack` sin renegociar.
 6. Crea el data channel `oai-events` (eventos de Realtime: tools, `response.created` / `response.done`).
 7. `createOffer` → `setLocalDescription`.
 8. Espera a que ICE termine (máximo 2 s) para mandar candidatos más completos, útil en red local / móvil.
@@ -123,7 +123,7 @@ Al pulsar **Hablar**:
 10. `setRemoteDescription` con la respuesta.
 11. Estado `live`.
 
-**No se mutea el micrófono** mientras Isi habla. El usuario puede interrumpirla. `interrupt_response` está en `true`.
+**No se mutea el micrófono** mientras Isi habla. El usuario puede interrumpirla: la interrupción la decide `voiceGuard` (ver sección de eco), no el VAD del servidor a ciegas.
 
 **Colgar** cierra el peer, para los tracks del micrófono y limpia el `<audio>`. Si el usuario cuelga a mitad de la conexión, un contador `generation` evita aplicar una respuesta vieja.
 
@@ -164,42 +164,71 @@ El backend sigue en HTTP; Vite proxya las rutas de la API. El audio WebRTC va di
 
 Con auriculares no hay problema: el mic no oye a Isi. Con altavoz el mic recoge su propia voz, el VAD cree que habla el usuario y ella se corta o se “autocorrige”.
 
-**Qué no se usa:** apagar el mic mientras ella habla. Eso obliga a esperar y no deja responder rápido.
+**Qué no se usa:** apagar el mic mientras ella habla (no se podría interrumpir) ni temporizadores de silencio arbitrarios.
 
-**Qué se usa:**
+**Causa raíz.** El VAD del servidor solo ve el audio que llega por WebRTC. Si el eco llega a ese audio, lo interpreta como un turno nuevo, cancela la respuesta y la conversación entra en bucle. Ningún filtro del lado del servidor puede distinguir eco de voz, así que la decisión se toma en el cliente, donde sí se conoce lo que suena por el altavoz.
 
-1. **AEC del navegador** — `echoCancellation: true` en `getUserMedia`.
-2. **AEC propio (AudioWorklet)** — `frontend/src/audio/aec-processor.js`. Resta la voz de Isi (referencia = stream remoto) del micrófono con un filtro adaptativo en frecuencia (FDAF + Wiener). Si el usuario habla encima (double-talk), no se come su voz.
-3. **Librería `@sapphi-red/web-noise-suppressor` (^0.4.0)** — npm, MIT. Nodos Web Audio para suprimir ruido:
-   - Primero **RNNoise** (`RnnoiseWorkletNode` + WASM de [xiph/rnnoise](https://github.com/xiph/rnnoise) vía [@shiguredo/rnnoise-wasm](https://github.com/shiguredo/rnnoise-wasm)). Exige sample rate 48 kHz.
-   - Si RNNoise no carga, **Speex** (`SpeexWorkletNode`, preprocess de SpeexDSP).
-   - Si ambos fallan, el audio sigue (AEC + AEC del browser).
-4. **OpenAI `audio.input.noise_reduction: far_field`** — pensado para mic de portátil / sala, no de auricular pegado a la boca.
+**Capas (de abajo arriba):**
 
-El pipeline se arma en `frontend/src/audio/voicePipeline.ts` y se engancha desde `useRealtimeVoice`. El mic **nunca se apaga**.
+1. **AEC/NS nativo del navegador** (`audioSession.ts`). Constraints explícitas y verificadas con `getSettings()`; se degradan por niveles si el navegador las rechaza. AGC apagado a propósito (amplificaría el residual de eco).
+2. **Detector local de voz real** (`echoGate.ts`, puro y testeable). Compara el nivel del mic con el eco esperado: `acoplamiento k × nivel remoto`, aprendido solo en tramos sin voz del usuario. Si el mic supera de forma sostenida lo que el altavoz explica (~200 ms), se confirma voz del usuario. Reglas aprendidas con estimación del ruido de fondo.
+3. **Monitor de audio** (`echoMonitor.ts`). Mide nivel de mic y del stream remoto (filtrados a banda de voz) con `AnalyserNode`; solo analiza. Informa si la referencia es fiable (`healthy`).
+4. **Orquestador** (`voiceGuard.ts`). Mientras el asistente suena, desactiva `create_response` e `interrupt_response` del servidor (`session.update`) y decide él:
+   - voz del usuario confirmada → interrupción voluntaria (`response.cancel` + `output_audio_buffer.clear`);
+   - habla sin confirmar (eco o usuario muy bajo) → no corta; su item se borra si es eco, o la petición queda **diferida** y se atiende al terminar el asistente (no se pierde);
+   - fuera de reproducción el control vuelve a ser el nativo (`semantic_vad`).
+5. **Verificación por contenido** (`echoTranscript.ts`). Una transcripción solapada con la voz del asistente se considera eco si ≥65 % de sus palabras forman tramos de ≥3 palabras seguidas copiados de lo que el asistente dijo. Reutilizar vocabulario suelto («las», «de la tarde») no cuenta, así que una petición nueva no se confunde con eco. Límite conocido: eco con una palabra mal transcrita (cobertura ~0,57) no se detecta por texto; ahí actúan las capas 2-4.
+6. **Degradación segura.** Si el monitor no es fiable (sin referencia, iOS con analyser remoto mudo, CPU saturada) o la reproducción no es observable, `voiceGuard` devuelve el control al VAD nativo con `interrupt_response` activo. Así nunca queda un asistente «sordo».
+7. **Aprendizaje de falsos positivos.** Si una interrupción resulta ser eco (la transcripción copia al asistente), se sube el umbral del detector.
 
-`@sapphi-red/web-noise-suppressor` hace `class … extends AudioWorkletNode` **al importarse**. Eso tumba la página si el navegador no tiene Worklets (HTTP sin HTTPS, WebView, etc.). Por eso el paquete se carga con `import()` **solo al pulsar Hablar**, no al abrir la app. Si no hay `AudioWorkletNode`, se usa el micrófono sin RNNoise.
+**Ciclo de vida del micrófono** (`watchMicrophone` + `recoverMicrophone`): si el track termina, se silencia por el sistema (llamada, otra app), se desconecta el dispositivo, se revoca el permiso o la PWA vuelve a primer plano, se intenta recapturar y se sustituye con `RTCRtpSender.replaceTrack`; el estado se informa al usuario con mensajes específicos (`describeMicError`).
 
+**Diferencias por plataforma:**
+
+| Plataforma | Comportamiento |
+| --- | --- |
+| Chrome/Edge Android y escritorio | AEC nativo fiable; análisis local completo. |
+| Safari iOS / PWA instalada | El AEC viene ligado al VPIO del sistema y `applyConstraints` suele ignorarse. El analyser del stream remoto puede estar mudo → se usan los eventos `output_audio_buffer.*` o se degrada al VAD nativo. |
+| Firefox | `noiseSuppression`/AEC según versión; el detector se calibra solo con lo que mida. |
+
+**No se activa el AEC propio.** `aec-processor.js` (FDAF de una partición, FFT 1024) solo modela ~5 ms de retardo de eco, insuficiente para altavoz+navegador (decenas/cientos de ms), y tiene un bloqueo de inicialización con `H=0`. Medido en un banco de pruebas: ~2 dB de ERLE. Tampoco se usa `@sapphi-red/web-noise-suppressor`. `voicePipeline.ts`, `aec-processor.js` y esa dependencia son **código sin uso** y pueden eliminarse.
+
+**OpenAI `audio.input.noise_reduction: far_field`** sigue activo en el servidor.
+
+**Pruebas sin dispositivo** (`frontend/scripts/`), desde `frontend/`:
+
+```bash
+../node_modules/.bin/esbuild scripts/simulate-echo-gate.ts --bundle --platform=node --format=cjs --outfile=/tmp/g.cjs && node /tmp/g.cjs
+../node_modules/.bin/esbuild scripts/simulate-voice-guard.ts --bundle --platform=node --format=cjs --outfile=/tmp/v.cjs && node /tmp/v.cjs
 ```
-mic (getUserMedia, echoCancellation)
-        │
-        ▼
-  AEC worklet  ←── clon del audio remoto (voz de Isi)
-        │
-        ▼
-  RNNoise (o Speex)
-        │
-        ▼
-  MediaStreamDestination → track WebRTC hacia OpenAI
-```
 
-Dependencia en `frontend/package.json`:
+La primera simula eco con distintos acoplamientos y voz del usuario por encima; la segunda reproduce los eventos Realtime de 9 escenarios (eco ignorado, interrupción voluntaria con y sin respuesta activa, petición baja diferida, auriculares, peticiones consecutivas, falso positivo, degradación, saludo inicial).
 
-```json
-"@sapphi-red/web-noise-suppressor": "^0.4.0"
-```
+**Limitaciones asumidas:**
 
-Imports del paquete: `loadRnnoise`, `loadSpeex`, `RnnoiseWorkletNode`, `SpeexWorkletNode`, más los assets `rnnoiseWorklet.js`, `rnnoise.wasm`, `rnnoise_simd.wasm`, `speexWorklet.js`, `speex.wasm`.
+- Con AEC pobre, un usuario que habla muy bajo encima del altavoz no podrá interrumpir; su petición se atiende al acabar el asistente.
+- Si el residual de eco es muy alto o el volumen se duplica a mitad de respuesta, puede haber un corte falso antes de que el detector se autocorrija.
+- `conversation.item.truncate` no está implementado tras una interrupción (el modelo cree que dijo todo).
+- AGC apagado: una voz muy baja puede llegar con poco nivel.
+- `voiceIsolation` es experimental y solo se pide si el navegador lo expone.
+
+### 8. Respuestas de voz sin relleno (preámbulos)
+
+`gpt-realtime-2.x` genera **preámbulos hablados por defecto** antes de llamar a una tool («déjame revisar…») y el prompt solo los reduce, no los elimina. Medido con `backend/scripts/probe-preamble.ts` (sesión real, entrada por audio sintetizado):
+
+- El `response.create` que el cliente enviaba tras cada tool llevaba `instructions`. En Realtime eso **sustituye** las instrucciones de la sesión en esa respuesta, así que se perdían las reglas de estilo y el modelo rellenaba («si quieres, puedo ayudarte a añadir alguna», «toca relajarse un poco»). Ahora se envía sin `instructions` (`frontend/src/assistant/tools/runtime.ts`).
+- Sección `# PREÁMBULOS: DESACTIVADOS` al inicio del prompt de voz y una nota en la descripción de cada tool (`backend/src/assistant/prompts/voice.ts`, `buildSession.ts`).
+- `reasoning.effort` configurable con `OPENAI_REALTIME_REASONING_EFFORT` (por defecto `low`). `minimal`/`none` eliminaron los preámbulos pero dejaron sin responder ~30-45 % de los turnos, por eso no se usan.
+- Red de seguridad en el cliente (`frontend/src/audio/preambleSuppressor.ts`): si la transcripción de una respuesta delata un preámbulo, silencia el reproductor y vacía el audio pendiente. El silencio es acotado (termina en la siguiente respuesta o 1,5 s tras `response.done`), nunca permanente. Simulación: `frontend/scripts/simulate-preamble-suppressor.ts`.
+
+Límite: las primeras palabras del preámbulo (~1 s) pueden llegar a oírse antes de que la transcripción permita detectarlo.
+
+### 9. Idioma del saludo y de la transcripción
+
+- **Saludo:** el cliente lo envía con `response.create` + `instructions`, que sustituye al prompt de sesión; sin una indicación de idioma salía en inglés 6 de cada 10 veces. Ahora fija «en español» hasta que el usuario hable (`prompts/greeting.ts` y su respaldo en `frontend/src/assistant/runtime/greeting.ts`): 0/16 en inglés (`backend/scripts/probe-greeting.ts`).
+- **Transcripción de lo que dice el usuario:** `whisper-1` alucinaba otros idiomas con audio corto o ruidoso (incluso con `language=es`). Ahora usa `gpt-4o-transcribe` con una pista de contexto en el prompt y sin fijar `language` (la app es multilingüe). Configurable con `OPENAI_REALTIME_TRANSCRIPTION_MODEL` (`gpt-4o-mini-transcribe` es la opción más barata). Medido con `backend/scripts/probe-transcription.ts [reps] [duro]`.
+- **Orden del chat:** la transcripción es asíncrona y puede llegar después de que el asistente empezó a responder; el mensaje del usuario se inserta antes de esas respuestas usando el instante en que terminó de hablar (`appendUserMessage(text, spokenAt)`).
+- **Respuesta duplicada:** el respaldo que crea una respuesta tras el turno del usuario no se dispara si el servidor ya respondió a ese turno (contador `responseSeq` en `useRealtimeVoice.ts`).
 
 ## Archivos involucrados
 
@@ -210,16 +239,21 @@ Imports del paquete: `loadRnnoise`, `loadSpeex`, `RnnoiseWorkletNode`, `SpeexWor
 | `backend/src/voices.ts` | Voces permitidas |
 | `backend/src/routes/realtime.ts` | Crea la llamada; instrucciones y tools salen de `backend/src/assistant/`, VAD, `far_field` |
 | `backend/src/app.ts` | Registra la ruta |
-| `frontend/src/hooks/useRealtimeVoice.ts` | WebRTC + pipeline de voz + llamada al API |
-| `frontend/src/audio/voicePipeline.ts` | AEC + RNNoise/Speex |
-| `frontend/src/audio/aec-processor.js` | AudioWorklet de cancelación de eco |
+| `frontend/src/hooks/useRealtimeVoice.ts` | WebRTC + guardia de voz + recuperación de mic + llamada al API |
+| `frontend/src/audio/audioSession.ts` | Captura de mic con constraints, vigilancia del track, errores |
+| `frontend/src/audio/echoGate.ts` | Detector local de voz del usuario frente a eco |
+| `frontend/src/audio/echoMonitor.ts` | Medición de niveles mic/remoto |
+| `frontend/src/audio/echoTranscript.ts` | Verificación de eco por contenido |
+| `frontend/src/audio/voiceGuard.ts` | Turnos, interrupción voluntaria, peticiones diferidas, degradación |
+| `frontend/scripts/simulate-*.ts` | Simulaciones sin dispositivo |
+| `frontend/src/audio/voicePipeline.ts`, `aec-processor.js` | Sin uso (AEC propio descartado) |
 | `frontend/src/lib/voices.ts` | Catálogo de voces en UI |
 | `frontend/src/lib/voice-assistant.tsx` | Contexto global de la llamada |
 | `frontend/src/pages/Dashboard.tsx` | Controles Hablar / voz / colgar |
 | `frontend/src/lib/realtimeTools.ts` | Ejecuta tools (tareas + `query_prestamo`) |
 | `backend/src/integrations/prestamo/client.ts` | Cliente HTTP hacia PrestamoApp (Atlas) |
 | `backend/src/routes/integrations/prestamo.ts` | Proxy JWT `/api/integrations/prestamo/*` |
-| `frontend/package.json` | `@sapphi-red/web-noise-suppressor` |
+| `frontend/package.json` | `@sapphi-red/web-noise-suppressor` (sin uso) |
 
 ## Integración Atlas (PrestamoApp)
 
@@ -336,7 +370,7 @@ Isi puede llamar `query_prestamo` varias veces en una conversación (p. ej. comp
 ## Qué no se hizo (a propósito)
 
 - La API key no se expone al cliente ni se usa WebSocket con la key en el browser.
-- No se mutea el mic para el eco del altavoz: se cancela en audio.
+- No se mutea el mic para el eco del altavoz: AEC nativo + decisión de turnos en el cliente.
 - No se usa Krisp ni servicios de denoise de pago.
 
 ## Referencias

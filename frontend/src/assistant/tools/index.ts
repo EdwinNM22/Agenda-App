@@ -10,6 +10,7 @@ import { runQueryPrestamo } from "./atlas/handlers"
 import { runQueryBiovizion } from "./biovizion-albums/handlers"
 import { runCreateBancoMovimiento, runQueryBanco } from "./banco/handlers"
 import { runEndCall, runGenerateReportPdf } from "./shared/handlers"
+import { beginToolCalls, settleToolCall, trackResponseLifecycle } from "./runtime"
 import type { RealtimeChannel } from "@/lib/realtimeChannel"
 import type { RealtimeEvent, RealtimeToolHandlers, ToolRunResult } from "./types"
 
@@ -74,11 +75,19 @@ export const handleRealtimeToolEvent = async (
     }
   }
 
-  for (const call of calls) {
+  // Registra todas las llamadas nuevas del evento ANTES de ejecutar la primera: así el modelo
+  // responde una sola vez, cuando terminó todo, y no entre una tool y la siguiente.
+  const fresh = calls.filter((call) => {
     if (seenCallIds.has(call.callId)) {
-      continue
+      return false
     }
     seenCallIds.add(call.callId)
+    return true
+  })
+  beginToolCalls(channel, fresh)
+  trackResponseLifecycle(channel, event.type)
+
+  for (const call of fresh) {
     handlers?.onToolStart?.(call.name)
     try {
       if (call.name === "create_task") {
@@ -126,6 +135,7 @@ export const handleRealtimeToolEvent = async (
       }
     } finally {
       handlers?.onToolEnd?.(call.name)
+      settleToolCall(channel, call.callId)
     }
   }
 }
